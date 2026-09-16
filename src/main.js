@@ -222,6 +222,7 @@ function boot() {
       start: 0, end: 'max',
       onUpdate: (self) => {
         const y = self.scroll();
+        nav.classList.toggle('is-scrolled', y > 40);
         if (y > last && y > 200) gsap.to(nav, { yPercent: -120, duration: 0.4, ease: 'power2.out' });
         else gsap.to(nav, { yPercent: 0, duration: 0.4, ease: 'power2.out' });
         last = y;
