@@ -94,6 +94,32 @@ function boot() {
   gsap.ticker.add((time) => lenis.raf(time * 1000));
   gsap.ticker.lagSmoothing(0);
 
+  /* ---- Mobile menu ---- */
+  const navToggle = $('[data-nav-toggle]');
+  const navMenu = $('[data-nav-menu]');
+  const setMenu = (open) => {
+    if (!navMenu || !navToggle) return;
+    navMenu.classList.toggle('is-open', open);
+    navToggle.setAttribute('aria-expanded', String(open));
+    navToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    navMenu.toggleAttribute('inert', !open);
+    document.body.style.overflow = open ? 'hidden' : '';
+    open ? lenis.stop() : lenis.start();   // keep the page from scrolling behind the overlay
+  };
+  if (navToggle && navMenu) {
+    navToggle.addEventListener('click', () => setMenu(navMenu.classList.contains('is-open') === false));
+    // capture phase: close (and restart Lenis) before the generic anchor handler scrolls
+    navMenu.querySelectorAll('a[href^="#"]').forEach((a) =>
+      a.addEventListener('click', () => setMenu(false), true));
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && navMenu.classList.contains('is-open')) setMenu(false);
+    });
+    // a resize past the breakpoint should never leave the page locked
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 720 && navMenu.classList.contains('is-open')) setMenu(false);
+    });
+  }
+
   // anchor smooth scroll
   $$('a[href^="#"]').forEach((a) => {
     a.addEventListener('click', (e) => {
@@ -223,7 +249,8 @@ function boot() {
       onUpdate: (self) => {
         const y = self.scroll();
         nav.classList.toggle('is-scrolled', y > 40);
-        if (y > last && y > 200) gsap.to(nav, { yPercent: -120, duration: 0.4, ease: 'power2.out' });
+        const menuOpen = navMenu && navMenu.classList.contains('is-open');
+        if (!menuOpen && y > last && y > 200) gsap.to(nav, { yPercent: -120, duration: 0.4, ease: 'power2.out' });
         else gsap.to(nav, { yPercent: 0, duration: 0.4, ease: 'power2.out' });
         last = y;
       },
