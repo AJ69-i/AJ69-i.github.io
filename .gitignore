@@ -5,5 +5,5 @@ dist
 .vite
 vite.config.js.timestamp-*
 *.bak
-dist-new
+dist-new*
 Claude outputs

@@ -19,7 +19,9 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" /></noscript>
 </head>
 <body>
 
@@ -280,37 +282,37 @@
 
         <div class="skills__grid">
           <div class="skill-group" data-reveal>
-            <h4>Core</h4>
+            <h3 class="skill-group__title">Core</h3>
             <ul class="tags">
               <li data-cursor-hover>Angular (up to v19)</li><li data-cursor-hover>TypeScript</li><li data-cursor-hover>JavaScript (ES6+)</li><li data-cursor-hover>HTML5</li>
             </ul>
           </div>
           <div class="skill-group" data-reveal>
-            <h4>Styling</h4>
+            <h3 class="skill-group__title">Styling</h3>
             <ul class="tags">
               <li data-cursor-hover>CSS3</li><li data-cursor-hover>SCSS / SASS</li><li data-cursor-hover>Tailwind</li><li data-cursor-hover>Angular Material</li><li data-cursor-hover>PrimeNG</li><li data-cursor-hover>i18n &amp; RTL</li>
             </ul>
           </div>
           <div class="skill-group" data-reveal>
-            <h4>State &amp; Reactivity</h4>
+            <h3 class="skill-group__title">State &amp; Reactivity</h3>
             <ul class="tags">
               <li data-cursor-hover>RxJS</li><li data-cursor-hover>NgRx</li><li data-cursor-hover>Reactive Forms</li><li data-cursor-hover>Signals</li><li data-cursor-hover>Change Detection</li>
             </ul>
           </div>
           <div class="skill-group" data-reveal>
-            <h4>APIs &amp; Real-Time</h4>
+            <h3 class="skill-group__title">APIs &amp; Real-Time</h3>
             <ul class="tags">
               <li data-cursor-hover>REST</li><li data-cursor-hover>GraphQL</li><li data-cursor-hover>WebSockets (SignalR)</li><li data-cursor-hover>Firebase</li>
             </ul>
           </div>
           <div class="skill-group" data-reveal>
-            <h4>Testing &amp; Delivery</h4>
+            <h3 class="skill-group__title">Testing &amp; Delivery</h3>
             <ul class="tags">
               <li data-cursor-hover>Jasmine</li><li data-cursor-hover>Karma</li><li data-cursor-hover>Jest</li><li data-cursor-hover>Git</li><li data-cursor-hover>Azure DevOps</li><li data-cursor-hover>CI/CD</li>
             </ul>
           </div>
           <div class="skill-group" data-reveal>
-            <h4>Ways of working</h4>
+            <h3 class="skill-group__title">Ways of working</h3>
             <ul class="tags">
               <li data-cursor-hover>Agile / Scrum</li><li data-cursor-hover>Code Reviews</li><li data-cursor-hover>Jira</li><li data-cursor-hover>Mentoring</li>
             </ul>

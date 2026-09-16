@@ -181,7 +181,7 @@ strong { font-weight: 600; color: var(--text); }
 /* ---------- Skills ---------- */
 .skills .section-title { margin-bottom: clamp(3rem, 8vh, 5rem); }
 .skills__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 2.5rem 3rem; }
-.skill-group h4 { font-family: var(--font-display); font-weight: 600; font-size: 0.95rem; letter-spacing: 0.02em; color: var(--text); padding-bottom: 0.9rem; margin-bottom: 1.2rem; border-bottom: 1px solid var(--line); }
+.skill-group__title { font-family: var(--font-display); font-weight: 600; font-size: 0.95rem; letter-spacing: 0.02em; color: var(--text); padding-bottom: 0.9rem; margin-bottom: 1.2rem; border-bottom: 1px solid var(--line); }
 .tags { display: flex; flex-wrap: wrap; gap: 0.6rem; }
 .tags li { font-size: 0.9rem; color: var(--muted); border: 1px solid var(--line); border-radius: 100px; padding: 0.45rem 0.95rem; transition: color .3s var(--ease), border-color .3s var(--ease), background .3s var(--ease); }
 .tags li:hover { color: #0a0a0b; background: var(--accent); border-color: var(--accent); }
