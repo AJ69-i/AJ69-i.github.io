@@ -159,6 +159,9 @@ strong { font-weight: 600; color: var(--text); }
 .section-label span { color: var(--accent); margin-right: 0.4rem; }
 .section-title { font-family: var(--font-display); font-weight: 700; line-height: 1.05; letter-spacing: -0.02em; font-size: clamp(1.9rem, 4.4vw, 3.4rem); max-width: 18ch; }
 .section-title--lg { font-size: clamp(2.4rem, 7vw, 5.5rem); max-width: 16ch; }
+/* Without this, "Don't take my word for it." drops "it." alone onto a line of
+   its own, and the highlight behind it reads as a mistake rather than a word. */
+.section-title { text-wrap: balance; }
 /* split-line wrappers (added by JS) */
 .line { display: block; overflow: hidden; }
 .line > span { display: block; }
