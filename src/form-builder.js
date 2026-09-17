@@ -85,6 +85,18 @@ export const CONTROLS = [
     hint: 'Clock picker for a time of day.',
     sample: { key: 'slot', label: 'Preferred time', type: 'time' } },
 
+  { type: 'daterange', label: 'Date Range', group: 'Date & time', icon: svg('<rect x="2.5" y="5" width="15" height="12" rx="2"/><path d="M2.5 9h15M6 3v4M14 3v4"/><path d="M7 13h6"/><path d="M11.5 11.5 13 13l-1.5 1.5"/>'),
+    hint: 'One field, not two — a range validates as a whole, so the end cannot precede the start.',
+    sample: { key: 'period', label: 'Cover period', type: 'daterange' } },
+
+  { type: 'duration', label: 'Duration', group: 'Date & time', icon: svg('<circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 1.5"/><path d="M15.5 4.5 17 3"/>'),
+    hint: 'Days, hours and minutes as one value — the units convert, so it is never a bare number.',
+    sample: { key: 'leave', label: 'Requested leave', type: 'duration', units: ['d', 'h', 'm'] } },
+
+  { type: 'period', label: 'Period', group: 'Date & time', icon: svg('<rect x="2.5" y="4" width="15" height="13" rx="2"/><path d="M2.5 8h15"/><path d="M6 11.5h3M11 11.5h3M6 14h3"/>'),
+    hint: 'A month and a year. Finance and payroll close on a period, never on a day.',
+    sample: { key: 'fiscal', label: 'Fiscal period', type: 'period' } },
+
   { type: 'datetime-local', label: 'Date & Time', group: 'Date & time', icon: svg('<rect x="3" y="4" width="14" height="13" rx="2"/><path d="M3 8h14M7 2v4"/><path d="M10.5 11v2l1.5 1"/>'),
     hint: 'Both at once, for scheduling.',
     sample: { key: 'starts', label: 'Starts at', type: 'datetime-local' } },
@@ -168,6 +180,9 @@ const RULES = {
   toggle:    [rule('requiredTrue', 'must be on', true)],
   date:      [rule('required', 'required', true), rule('notPast', 'no past dates', true)],
   time:      [rule('required', 'required', true)],
+  daterange: [rule('required', 'required', true), rule('notPast', 'no past dates', true), rule('maxSpan', 'max 30 days', 30)],
+  duration:  [rule('required', 'required', true), rule('min', 'at least 1h', 60), rule('max', 'at most 5d', 7200)],
+  period:    [rule('required', 'required', true), rule('notPast', 'no closed periods', true)],
   'datetime-local': [rule('required', 'required', true), rule('notPast', 'no past dates', true)],
   file:      [rule('required', 'required', true), rule('accept', 'PDF only', '.pdf'), rule('maxSize', 'max 5 MB', 5)],
   richtext:  [rule('required', 'required', true), rule('maxLength', 'max length', 2000)],
@@ -199,7 +214,8 @@ const FILTER_KIND = {
   text: 'contains', textarea: 'contains', email: 'contains', url: 'contains',
   tel: 'contains', richtext: 'contains', lookup: 'contains', barcode: 'contains', tree: 'contains',
   number: 'range', currency: 'range', range: 'range', rating: 'range',
-  date: 'dateRange', 'datetime-local': 'dateRange', time: 'dateRange',
+  date: 'dateRange', 'datetime-local': 'dateRange', time: 'dateRange', period: 'dateRange',
+  duration: 'range',
   select: 'anyOf', radio: 'anyOf', multiselect: 'anyOf', checkbox: 'anyOf',
   toggle: 'bool',
 };
@@ -227,6 +243,9 @@ const HELP = {
   date: 'The first day users will be able to sign in.',
   time: 'Local time at the customer site.',
   'datetime-local': 'We hold the slot for 48 hours.',
+  daterange: 'Both ends count as working days.',
+  duration: 'Half days are fine — use hours.',
+  period: 'The period the invoice will be posted to.',
   file: 'The signed copy, not the draft.',
   richtext: 'These terms appear on every invoice.',
   signature: 'Use a mouse, a trackpad or your finger.',
@@ -247,6 +266,7 @@ const NATURAL_WIDTH = {
   textarea: 'w-100', checkbox: 'w-100', radio: 'w-100', multiselect: 'w-100',
   richtext: 'w-100', signature: 'w-100', lineitems: 'w-100', lookup: 'w-100', file: 'w-100',
   tree: 'w-100', otp: 'w-50', barcode: 'w-50',
+  daterange: 'w-75', duration: 'w-50', period: 'w-50',
 };
 
 /* The group order the palette renders in. */
@@ -435,6 +455,20 @@ const MOCKS = {
   barcode:  () => `<div class="mk-box">${mkIcon('<path d="M3 4v12M6 4v12M8.5 4v12M11.5 4v9M14 4v12M17 4v12"/>')}${bar('34%')}</div>
                    <div class="mk-bars">${[3, 1, 2, 1, 1, 3, 1, 2, 2, 1, 3, 1, 1, 2, 1, 3, 2, 1, 1, 2]
                      .map((w, i) => `<i style="--w:${w}px;--t:${(i / 19).toFixed(3)}"></i>`).join('')}</div>`,
+
+  daterange: () => `<div class="mk-box mk-box--split">${mkIcon(I_CAL)}${bar('26%')}
+                      <span class="mk-arrow"></span>${mkIcon(I_CAL)}${bar('26%')}</div>
+                    ${calendar()}`,
+
+  duration: () => `<div class="mk-dur">
+                     <span class="mk-dur__cell">${bar('16px')}<em>d</em></span>
+                     <span class="mk-dur__cell">${bar('16px')}<em>h</em></span>
+                     <span class="mk-dur__cell">${bar('16px')}<em>m</em></span>
+                   </div>`,
+
+  period:   () => `<div class="mk-box">${mkIcon(I_CAL)}${bar('22%')}<span class="mk-chev"></span></div>
+                   <div class="mk-months">${Array.from({ length: 12 }, (_, i) =>
+                     `<span class="mk-month${i === 8 ? ' is-on' : ''}" style="--t:${((i % 4) / 3).toFixed(3)}">${bar('60%')}</span>`).join('')}</div>`,
 
   tree:     () => `<div class="mk-box">${bar('30%')}<span class="mk-chev"></span></div>
                    <div class="mk-tree">
@@ -1331,6 +1365,126 @@ function buildField(f, idx) {
       break;
     }
 
+    case 'daterange': {
+      /* A range is one value. Two date fields side by side cannot say "the end
+         must not precede the start" — this can, because it owns both ends. */
+      input = el('div', 'fb-range2');
+      const hidden = el('input', null, { type: 'hidden', name: f.key });
+      const from = datePicker({ name: `${f.key}__from`, id, label: `${f.label} — from` });
+      const to = datePicker({ name: `${f.key}__to`, label: `${f.label} — to` });
+      const arrow = el('span', 'fb-range2__arrow');
+      const note = el('p', 'fb-range2__span');
+
+      const sync = () => {
+        const a = from.querySelector('input[type=hidden]').value;
+        const bEnd = to.querySelector('input[type=hidden]').value;
+        hidden.value = a && bEnd ? `${a}..${bEnd}` : '';
+        if (a && bEnd) {
+          const days = Math.round((new Date(bEnd) - new Date(a)) / 86400000) + 1;
+          note.textContent = days > 0 ? `${days} day${days === 1 ? '' : 's'}` : 'The end is before the start.';
+          note.classList.toggle('is-bad', days <= 0);
+        } else {
+          note.textContent = '';
+          note.classList.remove('is-bad');
+        }
+        // No dispatch here: this listener sits on the wrapper, so a bubbling
+        // event fired from inside it would come straight back and recurse.
+        // The two pickers already emit their own, and those reach the form.
+      };
+      input.addEventListener('input', sync);
+      input.append(from, arrow, to, hidden, note);
+      break;
+    }
+
+    case 'duration': {
+      input = el('div', 'fb-dur');
+      const hidden = el('input', null, { type: 'hidden', name: f.key });
+      const PARTS = [{ u: 'd', label: 'days', mins: 1440 },
+                     { u: 'h', label: 'hours', mins: 60 },
+                     { u: 'm', label: 'minutes', mins: 1 }];
+      const boxes = {};
+
+      const sync = () => {
+        // the value is minutes, because that is the only unit that adds up
+        hidden.value = String(PARTS.reduce((t, p) => t + (Number(boxes[p.u].value) || 0) * p.mins, 0));
+        hidden.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+
+      PARTS.forEach((p, i) => {
+        const cell = el('label', 'fb-dur__cell');
+        const box = el('input', 'fb-input fb-input--sm', {
+          type: 'number', min: 0, inputmode: 'numeric', 'aria-label': p.label,
+        });
+        if (i === 0) box.id = id;
+        box.placeholder = '0';
+        box.addEventListener('input', sync);
+        boxes[p.u] = box;
+        const unit = el('em'); unit.textContent = p.u;
+        cell.append(box, unit);
+        input.appendChild(cell);
+      });
+      input.appendChild(hidden);
+      sync();
+      break;
+    }
+
+    case 'period': {
+      const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      input = el('div', 'fb-date');
+      const hidden = el('input', null, { type: 'hidden', name: f.key });
+      const btn = el('button', 'fb-date__btn', {
+        type: 'button', id, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': f.label,
+      });
+      const text = el('span', 'fb-date__value');
+      text.textContent = 'Pick a period';
+      btn.append(el('i', 'fb-date__icon'), text);
+
+      const pop = el('div', 'fb-date__pop', { role: 'dialog', 'data-lenis-prevent': true });
+      pop.hidden = true;
+      const head = el('div', 'fb-date__head');
+      const prev = el('button', 'fb-date__nav', { type: 'button', 'aria-label': 'Previous year' });
+      const next = el('button', 'fb-date__nav fb-date__nav--next', { type: 'button', 'aria-label': 'Next year' });
+      const title = el('span', 'fb-date__title');
+      head.append(prev, title, next);
+      const grid = el('div', 'fb-period__grid');
+      pop.append(head, grid);
+
+      let year = new Date().getFullYear();
+      let month = null;
+
+      const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+      const paint = () => {
+        title.textContent = year;
+        grid.innerHTML = '';
+        MON.forEach((m, i) => {
+          const b = el('button', 'fb-period__cell', { type: 'button' });
+          b.textContent = m;
+          if (month && month.y === year && month.m === i) b.classList.add('is-on');
+          b.addEventListener('click', () => {
+            month = { y: year, m: i };
+            hidden.value = `${year}-${pad2(i + 1)}`;
+            text.textContent = `${m} ${year}`;
+            text.classList.add('is-set');
+            hidden.dispatchEvent(new Event('input', { bubbles: true }));
+            paint();
+            close();
+          });
+          grid.appendChild(b);
+        });
+      };
+      prev.addEventListener('click', () => { year -= 1; paint(); });
+      next.addEventListener('click', () => { year += 1; paint(); });
+      btn.addEventListener('click', () => {
+        pop.hidden = !pop.hidden;
+        btn.setAttribute('aria-expanded', String(!pop.hidden));
+        if (!pop.hidden) paint();
+      });
+      dismissable(input, close, () => !pop.hidden);
+      input.append(btn, hidden, pop);
+      paint();
+      break;
+    }
+
     case 'computed': {
       input = el('div', 'fb-computed');
       input.dataset.computed = f.key;
@@ -1355,7 +1509,8 @@ function buildField(f, idx) {
      customErrors instead — pushing minLength onto one cell of a six-box code
      is both wrong and, since it exceeds that cell's maxlength, fatal. */
   const COMPOSITE = ['otp', 'tree', 'lookup', 'multiselect', 'signature', 'richtext', 'lineitems',
-                     'rating', 'select', 'date', 'time', 'datetime-local', 'color'];
+                     'rating', 'select', 'date', 'time', 'datetime-local', 'color',
+                     'daterange', 'duration', 'period'];
   const target = COMPOSITE.includes(f.type) ? null
                : input.matches('input, select, textarea') ? input
                : input.querySelector('input:not([type=hidden]), select, textarea');
@@ -1421,6 +1576,16 @@ function readValue(form, f) {
     }
     case 'computed':
       return Number(node.dataset.value || 0);
+    case 'daterange': {
+      const [from, to] = String(node.value || '').split('..');
+      return from && to ? { from, to } : null;
+    }
+    case 'duration': {
+      const mins = Number(node.value) || 0;
+      return { minutes: mins, human: `${Math.floor(mins / 1440)}d ${Math.floor((mins % 1440) / 60)}h ${mins % 60}m` };
+    }
+    case 'period':
+      return node.value || null;
     case 'tree': {
       const picked = node.parentElement.querySelector('[aria-selected="true"]');
       return node.value ? { id: node.value, label: picked ? picked.textContent : '' } : null;
@@ -1533,7 +1698,8 @@ function customErrors(form, fields) {
                   (f.type === 'rating' && !v);
 
     // hidden inputs are barred from constraint validation, so these ask here
-    if (r.required && ['lookup', 'signature', 'multiselect', 'rating', 'richtext', 'otp', 'tree'].includes(f.type) && empty)
+    if (r.required && ['lookup', 'signature', 'multiselect', 'rating', 'richtext', 'otp', 'tree',
+                       'daterange', 'period'].includes(f.type) && empty)
       out.push([f.key, 'Required.']);
 
     if (f.type === 'otp' && r.minLength && v && String(v).length < r.minLength)
@@ -1543,6 +1709,9 @@ function customErrors(form, fields) {
       const node = form.querySelector(`.fb-tree__node[data-id="${v.id}"]`);
       if (node && node.dataset.leaf !== 'true') out.push([f.key, 'Pick a node with no children.']);
     }
+
+    if (r.required && f.type === 'duration' && (!v || !v.minutes))
+      out.push([f.key, 'Required.']);
 
     if (r.minSelected && (!Array.isArray(v) || v.length < r.minSelected))
       out.push([f.key, `Choose at least ${r.minSelected}.`]);
@@ -1572,8 +1741,24 @@ function customErrors(form, fields) {
     if (r.min != null && f.type === 'rating' && Number(v) < r.min)
       out.push([f.key, `At least ${r.min}.`]);
 
-    if (r.notPast && v && new Date(v) < today)
+    if (r.notPast && v && f.type === 'daterange' && new Date(v.from) < today)
+      out.push([f.key, 'Cannot start in the past.']);
+    else if (r.notPast && v && f.type === 'period' && new Date(`${v}-01`) < new Date(today.getFullYear(), today.getMonth(), 1))
+      out.push([f.key, 'That period is already closed.']);
+    else if (r.notPast && v && !['daterange', 'period'].includes(f.type) && new Date(v) < today)
       out.push([f.key, 'Cannot be in the past.']);
+
+    if (f.type === 'daterange' && v) {
+      const days = Math.round((new Date(v.to) - new Date(v.from)) / 86400000) + 1;
+      if (days <= 0) out.push([f.key, 'The end must not precede the start.']);
+      else if (r.maxSpan && days > r.maxSpan) out.push([f.key, `No longer than ${r.maxSpan} days.`]);
+    }
+
+    if (f.type === 'duration' && v) {
+      const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+      if (r.min && v.minutes < r.min) out.push([f.key, `At least ${plural(Math.round(r.min / 60), 'hour')}.`]);
+      if (r.max && v.minutes > r.max) out.push([f.key, `At most ${plural(Math.round(r.max / 1440), 'day')}.`]);
+    }
 
     if (r.maxSize && f.type === 'file') {
       const node = form.querySelector(`[name="${f.key}"]`);

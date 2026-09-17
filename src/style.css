@@ -771,3 +771,33 @@ strong { font-weight: 600; color: var(--text); }
 .fb-cond .fb-select__list { min-width: 100%; width: max-content; max-width: 260px; }
 .fb-cond__val { max-width: 150px; }
 .fb-field.is-hidden { display: none; }
+
+/* ---------- previews: range, duration, period ---------- */
+.mk-box--split { gap: 0.45rem; }
+.mk-arrow { width: 14px; height: 1.5px; background: var(--muted-2); position: relative; flex-shrink: 0; margin: 0 0.15rem; }
+.mk-arrow::after { content: ""; position: absolute; right: 0; top: -2.5px; width: 6px; height: 6px; border-top: 1.5px solid var(--muted-2); border-right: 1.5px solid var(--muted-2); transform: rotate(45deg); }
+.mk-dur { display: flex; gap: 0.45rem; }
+.mk-dur__cell { display: flex; align-items: center; gap: 0.4rem; padding: 0.7rem 0.75rem; min-height: 42px; background: var(--bg); border: 1px solid var(--mk-line); border-radius: 9px; }
+.mk-dur__cell em { font-style: normal; font-size: 0.72rem; color: var(--muted-2); }
+.mk-months { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; max-width: 232px; padding: 0.6rem; background: var(--bg); border: 1px solid var(--mk-line); border-radius: 9px; }
+.mk-month { display: grid; place-items: center; height: 26px; border-radius: 6px; opacity: calc(1 - 0.38 * var(--t, 0)); }
+.mk-month.is-on { background: var(--accent); opacity: 1; }
+.mk-month.is-on .mk-bar { background: rgba(10,10,11,0.7); }
+
+/* ---------- live: range, duration, period ---------- */
+.fb-range2 { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.fb-range2 .fb-date { flex: 1 1 150px; width: auto; }
+.fb-range2__arrow { width: 16px; height: 1.5px; background: var(--muted-2); position: relative; flex-shrink: 0; }
+.fb-range2__arrow::after { content: ""; position: absolute; right: 0; top: -2.5px; width: 6px; height: 6px; border-top: 1.5px solid var(--muted-2); border-right: 1.5px solid var(--muted-2); transform: rotate(45deg); }
+.fb-range2__span { flex: 1 0 100%; margin: 0; font-size: 0.75rem; color: var(--accent); font-variant-numeric: tabular-nums; }
+.fb-range2__span.is-bad { color: #e88b7d; }
+
+.fb-dur { display: flex; gap: 0.5rem; }
+.fb-dur__cell { display: flex; align-items: center; gap: 0.4rem; flex: 1 1 0; min-width: 0; }
+.fb-dur__cell .fb-input { text-align: right; min-width: 0; font-variant-numeric: tabular-nums; }
+.fb-dur__cell em { font-style: normal; font-size: 0.78rem; color: var(--muted-2); flex-shrink: 0; }
+
+.fb-period__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; min-width: 232px; }
+.fb-period__cell { padding: 0.5rem 0.4rem; background: none; border: 0; border-radius: 7px; font-family: var(--font-body); font-size: 0.8rem; color: var(--muted); cursor: pointer; transition: background .2s var(--ease), color .2s var(--ease); }
+.fb-period__cell:hover { background: rgba(243,240,234,0.07); color: var(--text); }
+.fb-period__cell.is-on { background: var(--accent); color: #0a0a0b; font-weight: 600; }
