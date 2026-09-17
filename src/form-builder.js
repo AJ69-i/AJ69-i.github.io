@@ -26,6 +26,136 @@ const COUNTRIES = [
   { code: 'US', name: 'United States',        dial: '+1',   currency: 'USD' },
 ];
 
+const LOCALES = [
+  { code: 'en', label: 'English',  dir: 'ltr' },
+  { code: 'ar', label: 'العربية', dir: 'rtl' },
+  { code: 'fr', label: 'Français', dir: 'ltr' },
+];
+
+/* ---------- the strings the engine itself puts on the screen ----------
+   Labels, options and help are the author's content: they come from the
+   schema, and a builder that translates those for you is guessing. What it
+   owes you is its own copy — every button, every message, in every language
+   it claims to support. Dates and plurals go through Intl rather than through
+   a hand-written table, because that is what Intl is for. */
+const T = {
+  en: {
+    submit: 'Submit', addRow: '+ Add row', removeRow: 'Remove row', removeFile: 'Remove file',
+    rows: (n) => `${n} row${n === 1 ? '' : 's'}`,
+    clear: 'Clear', pickDate: 'Pick a date', pickDateTime: 'Pick a date and time',
+    pickTime: 'Pick a time', pickPeriod: 'Pick a period',
+    hour: 'Hour', minute: 'Minute', ampm: 'AM or PM',
+    prevMonth: 'Previous month', nextMonth: 'Next month',
+    prevYear: 'Previous year', nextYear: 'Next year',
+    required: 'Required.', invalid: 'Not valid.', badFormat: 'Does not match the required format.',
+    tooShort: (n) => `At least ${n} characters.`, tooLong: (n) => `At most ${n} characters.`,
+    tooSmall: (n) => `Not less than ${n}.`, tooBig: (n) => `Not more than ${n}.`,
+    otpAll: (n) => `All ${n} digits.`, leafOnly: 'Pick a node with no children.',
+    minSelected: (n) => `Choose at least ${n}.`,
+    minRows: (n) => `At least ${n} row${n === 1 ? '' : 's'}.`,
+    maxRows: (n) => `No more than ${n} rows.`,
+    dupe: (c) => `Two rows share the same ${c}.`,
+    mustBeOn: 'This has to be switched on to continue.', atLeast: (n) => `At least ${n}.`,
+    noPastStart: 'Cannot start in the past.', periodClosed: 'That period is already closed.',
+    noPast: 'Cannot be in the past.', endBeforeStart: 'The end must not precede the start.',
+    maxSpan: (n) => `No longer than ${n} days.`,
+    minHours: (n) => `At least ${n} hour${n === 1 ? '' : 's'}.`,
+    maxDays: (n) => `At most ${n} day${n === 1 ? '' : 's'}.`,
+    maxSize: (n) => `Must be under ${n} MB.`,
+    qtyMin: (n, u) => `At least ${n} ${u}.`, qtyMax: (n, u) => `No more than ${n} ${u}.`,
+    maskAll: (n, m) => `Needs all ${n} characters — ${m}.`,
+    pwNeeds: (l) => `Still needs ${l}.`, pwShort: (l) => `needs ${l}`,
+    pwScore: ['too easy', 'too easy', 'weak', 'almost there', 'strong'],
+    pwLen: '10 characters', pwCase: 'mixed case', pwDigit: 'a digit', pwSymbol: 'a symbol',
+    and: 'and',
+  },
+  ar: {
+    submit: 'إرسال', addRow: '+ إضافة صف', removeRow: 'حذف الصف', removeFile: 'إزالة الملف',
+    rows: (n) => (n === 1 ? 'صف واحد' : n === 2 ? 'صفان' : n <= 10 ? `${n} صفوف` : `${n} صفًا`),
+    clear: 'مسح', pickDate: 'اختر تاريخًا', pickDateTime: 'اختر تاريخًا ووقتًا',
+    pickTime: 'اختر وقتًا', pickPeriod: 'اختر فترة',
+    hour: 'الساعة', minute: 'الدقيقة', ampm: 'صباحًا أو مساءً',
+    prevMonth: 'الشهر السابق', nextMonth: 'الشهر التالي',
+    prevYear: 'السنة السابقة', nextYear: 'السنة التالية',
+    required: 'مطلوب.', invalid: 'غير صالح.', badFormat: 'لا يطابق الصيغة المطلوبة.',
+    tooShort: (n) => `${n} أحرف على الأقل.`, tooLong: (n) => `${n} حرفًا كحد أقصى.`,
+    tooSmall: (n) => `لا يقل عن ${n}.`, tooBig: (n) => `لا يزيد عن ${n}.`,
+    otpAll: (n) => `الرمز كاملًا — ${n} أرقام.`, leafOnly: 'اختر عنصرًا ليس له عناصر فرعية.',
+    minSelected: (n) => `اختر ${n} على الأقل.`,
+    minRows: (n) => `${n} صف على الأقل.`, maxRows: (n) => `${n} صفوف كحد أقصى.`,
+    dupe: (c) => `صفّان يحملان نفس الـ ${c}.`,
+    mustBeOn: 'لا بد من تفعيل هذا للمتابعة.', atLeast: (n) => `${n} على الأقل.`,
+    noPastStart: 'لا يمكن أن تبدأ في الماضي.', periodClosed: 'هذه الفترة مقفلة بالفعل.',
+    noPast: 'لا يمكن أن يكون في الماضي.', endBeforeStart: 'النهاية لا يمكن أن تسبق البداية.',
+    maxSpan: (n) => `${n} يومًا كحد أقصى.`,
+    minHours: (n) => `${n} ساعات على الأقل.`, maxDays: (n) => `${n} أيام كحد أقصى.`,
+    maxSize: (n) => `يجب أن يكون أقل من ${n} ميجابايت.`,
+    qtyMin: (n, u) => `${n} ${u} على الأقل.`, qtyMax: (n, u) => `${n} ${u} كحد أقصى.`,
+    maskAll: (n, m) => `يجب إكمال ${n} خانة — ${m}.`,
+    pwNeeds: (l) => `ما زال ينقصها ${l}.`, pwShort: (l) => `ينقصها ${l}`,
+    pwScore: ['ضعيفة جدًا', 'ضعيفة جدًا', 'ضعيفة', 'أوشكت', 'قوية'],
+    pwLen: '10 خانات', pwCase: 'حروف كبيرة وصغيرة', pwDigit: 'رقم', pwSymbol: 'رمز',
+    and: 'و',
+  },
+  fr: {
+    submit: 'Envoyer', addRow: '+ Ajouter une ligne', removeRow: 'Supprimer la ligne', removeFile: 'Supprimer le fichier',
+    rows: (n) => `${n} ligne${n === 1 ? '' : 's'}`,
+    clear: 'Effacer', pickDate: 'Choisir une date', pickDateTime: 'Choisir une date et une heure',
+    pickTime: 'Choisir une heure', pickPeriod: 'Choisir une période',
+    hour: 'Heure', minute: 'Minute', ampm: 'AM ou PM',
+    prevMonth: 'Mois précédent', nextMonth: 'Mois suivant',
+    prevYear: 'Année précédente', nextYear: 'Année suivante',
+    required: 'Obligatoire.', invalid: 'Non valide.', badFormat: 'Ne correspond pas au format demandé.',
+    tooShort: (n) => `Au moins ${n} caractères.`, tooLong: (n) => `Au plus ${n} caractères.`,
+    tooSmall: (n) => `Pas moins de ${n}.`, tooBig: (n) => `Pas plus de ${n}.`,
+    otpAll: (n) => `Les ${n} chiffres.`, leafOnly: 'Choisissez un nœud sans enfants.',
+    minSelected: (n) => `Choisissez-en au moins ${n}.`,
+    minRows: (n) => `Au moins ${n} ligne${n === 1 ? '' : 's'}.`,
+    maxRows: (n) => `Pas plus de ${n} lignes.`,
+    dupe: (c) => `Deux lignes ont le même ${c}.`,
+    mustBeOn: 'Il faut activer ceci pour continuer.', atLeast: (n) => `Au moins ${n}.`,
+    noPastStart: 'Ne peut pas commencer dans le passé.', periodClosed: 'Cette période est déjà clôturée.',
+    noPast: 'Ne peut pas être dans le passé.', endBeforeStart: 'La fin ne peut pas précéder le début.',
+    maxSpan: (n) => `Pas plus de ${n} jours.`,
+    minHours: (n) => `Au moins ${n} heure${n === 1 ? '' : 's'}.`,
+    maxDays: (n) => `Au plus ${n} jour${n === 1 ? '' : 's'}.`,
+    maxSize: (n) => `Doit faire moins de ${n} Mo.`,
+    qtyMin: (n, u) => `Au moins ${n} ${u}.`, qtyMax: (n, u) => `Pas plus de ${n} ${u}.`,
+    maskAll: (n, m) => `Il faut les ${n} caractères — ${m}.`,
+    pwNeeds: (l) => `Il manque encore ${l}.`, pwShort: (l) => `il manque ${l}`,
+    pwScore: ['trop simple', 'trop simple', 'faible', 'presque', 'fort'],
+    pwLen: '10 caractères', pwCase: 'majuscules et minuscules', pwDigit: 'un chiffre', pwSymbol: 'un symbole',
+    and: 'et',
+  },
+};
+
+/* One rendered form at a time in this demo, so its language lives here rather
+   than being threaded through the signature of everything that draws a string.
+   Controls that print translated text register a repainter, which is why the
+   form re-localises in place instead of being rebuilt and losing what you
+   already typed. */
+const FORM = { lang: 'en', dir: 'ltr', repaint: [] };
+
+function t(key, ...args) {
+  const table = T[FORM.lang] || T.en;
+  const v = key in table ? table[key] : T.en[key];
+  return typeof v === 'function' ? v(...args) : v;
+}
+
+/* Arabic is written with Arabic-Indic digits by default. Inside a form whose
+   day cells and amounts are drawn as plain numbers, mixing the two sets looks
+   like a bug, so the whole form stays on Latin digits. */
+const intlTag = () => (FORM.lang === 'ar' ? 'ar-u-nu-latn' : FORM.lang);
+const monthName = (m) => new Intl.DateTimeFormat(intlTag(), { month: 'long' }).format(new Date(2021, m, 1));
+const monthShort = (m) => new Intl.DateTimeFormat(intlTag(), { month: 'short' }).format(new Date(2021, m, 1));
+const dowNarrow = () => Array.from({ length: 7 }, (_, i) =>
+  new Intl.DateTimeFormat(intlTag(), { weekday: 'narrow' }).format(new Date(2021, 1, 1 + i)));   // 1 Feb 2021 was a Monday
+const arrow = () => (FORM.dir === 'rtl' ? '←' : '→');
+
+/* A label may be a plain string or a map of translations. Both are the
+   author's, so the engine resolves, it never invents. */
+const lbl = (v) => (v && typeof v === 'object' ? (v[FORM.lang] || v.en || Object.values(v)[0]) : v);
+
 /* A quantity is a number and the unit it happened to be entered in. The pair
    converts to one base unit on the way out — which is the only reason a total
    over rows in grams, kilos and tonnes can come out right. */
@@ -64,7 +194,8 @@ export const CONTROLS = [
 
   { type: 'tel', label: 'Phone', group: 'Text', icon: svg('<path d="M5 3h2.6l1.3 3.6-1.8 1.3a10.5 10.5 0 0 0 4 4l1.3-1.8L16 11.4V14a2 2 0 0 1-2.2 2A13 13 0 0 1 3 5.2 2 2 0 0 1 5 3z"/>'),
     hint: 'Dial code and number stay separate, so the value keeps its country.',
-    sample: { key: 'phone', label: 'Phone', type: 'tel', dial: '+20', dials: DIALS, placeholder: '10 1234 5678' } },
+    sample: { key: 'phone', label: { en: 'Phone', ar: 'الهاتف', fr: 'Téléphone' },
+              type: 'tel', dial: '+20', dials: DIALS, placeholder: '10 1234 5678' } },
 
   { type: 'password', label: 'Password', group: 'Text', icon: svg('<rect x="4" y="9" width="12" height="7" rx="2"/><path d="M7 9V6.5a3 3 0 0 1 6 0V9"/>'),
     hint: 'Masked input. The value never appears in the rendered markup.',
@@ -77,7 +208,8 @@ export const CONTROLS = [
 
   { type: 'currency', label: 'Currency', group: 'Numbers', icon: svg('<rect x="2.5" y="5.5" width="15" height="9" rx="2"/><circle cx="10" cy="10" r="2.2"/><path d="M5.5 8.5v3M14.5 8.5v3"/>'),
     hint: 'Amount and currency travel together, so the number is never ambiguous.',
-    sample: { key: 'budget', label: 'Budget', type: 'currency', currency: 'EGP', currencies: CURRENCIES, value: 25000 } },
+    sample: { key: 'budget', label: { en: 'Budget', ar: 'الميزانية', fr: 'Budget' },
+              type: 'currency', currency: 'EGP', currencies: CURRENCIES, value: 25000 } },
 
   { type: 'quantity', label: 'Quantity', group: 'Numbers', icon: svg('<path d="M10 2.8 17 6.2v7.6L10 17.2 3 13.8V6.2z"/><path d="M3 6.2 10 9.6l7-3.4M10 9.6v7.6"/>'),
     hint: 'A number and the unit it was typed in. It converts to one base unit on the way out, so a bound is a bound and a total over mixed units is still a total.',
@@ -118,7 +250,13 @@ export const CONTROLS = [
 
   { type: 'country', label: 'Country', group: 'Choice', icon: svg('<circle cx="10" cy="10" r="7"/><path d="M3.6 7.2h12.8M3.6 12.8h12.8"/><path d="M10 3a11 11 0 0 1 0 14a11 11 0 0 1 0-14"/>'),
     hint: 'One answer that fills in the next. It names the kinds of field it drives, so picking a country sets the currency and the dial code with no component code at all.',
-    sample: { key: 'country', label: 'Country', type: 'country', ref: 'countries', value: 'EG', drives: ['currency', 'tel'] } },
+    sample: { key: 'country', label: { en: 'Country', ar: 'الدولة', fr: 'Pays' },
+              type: 'country', ref: 'countries', value: 'EG', drives: ['currency', 'tel'] } },
+
+  { type: 'locale', label: 'Language', group: 'Choice', icon: svg('<path d="M3 5.5h7M6.5 3.5v2M8.2 5.5c0 3-2.2 5.4-5.2 6.5M4.5 8.2c1 1.8 2.8 3 5 3.6"/><path d="m10.5 16.5 3-8 3 8M11.6 14h3.8"/>'),
+    hint: 'Direction is a value in the form, not a decision taken once in a stylesheet. Pick Arabic and the whole rendered form turns around — layout, dates, and every message the engine owns.',
+    sample: { key: 'locale', label: { en: 'Language', ar: 'اللغة', fr: 'Langue' },
+              type: 'locale', ref: 'locales', value: 'en', sets: 'dir' } },
 
   /* ---- Date & time ---- */
   { type: 'date', label: 'Date', group: 'Date & time', icon: svg('<rect x="3" y="5" width="14" height="12" rx="2"/><path d="M3 9h14M7 3v4M13 3v4"/>'),
@@ -228,6 +366,7 @@ const RULES = {
   checkbox:  [rule('required', 'required', true), rule('minSelected', 'min selected', 1)],
   radio:     [rule('required', 'required', true)],
   country:   [rule('required', 'required', true)],
+  locale:    [rule('required', 'required', true)],
   toggle:    [rule('requiredTrue', 'must be on', true)],
   date:      [rule('required', 'required', true), rule('notPast', 'no past dates', true)],
   time:      [rule('required', 'required', true)],
@@ -265,7 +404,7 @@ const NO_RULES = {
 const FILTER_KIND = {
   text: 'contains', textarea: 'contains', email: 'contains', url: 'contains',
   tel: 'contains', richtext: 'contains', lookup: 'contains', barcode: 'contains', tree: 'contains',
-  country: 'contains', masked: 'contains',
+  country: 'contains', masked: 'contains', locale: 'contains',
   number: 'range', currency: 'range', range: 'range', rating: 'range', percent: 'range', quantity: 'range',
   date: 'dateRange', 'datetime-local': 'dateRange', time: 'dateRange', period: 'dateRange',
   duration: 'range',
@@ -295,6 +434,7 @@ const HELP = {
   checkbox: 'Modules can be added later without a new contract.',
   radio: 'Annual billing carries a discount.',
   country: 'Sets the currency and the dial code on the rest of this form.',
+  locale: 'Everything below re-reads itself in the language you pick.',
   toggle: 'You can review the full terms before you agree.',
   date: 'The first day users will be able to sign in.',
   time: 'Local time at the customer site.',
@@ -348,6 +488,7 @@ const TREE = [
 
 const DATASETS = {
   countries: COUNTRIES,
+  locales: LOCALES,
   customers: [
     { id: 'CUS-1042', name: 'Acme Trading' },
     { id: 'CUS-1187', name: 'Nile Logistics' },
@@ -453,6 +594,8 @@ const MOCKS = {
                      <span class="mk-row"><i class="mk-radio is-on"></i>${bar('26%')}</span>
                      <span class="mk-row"><i class="mk-radio"></i>${bar('32%')}</span></div>`,
   toggle:   () => `<div class="mk-row mk-row--switch"><span class="mk-switch"><i></i></span>${bar('28%')}</div>`,
+  locale:   () => `<div class="mk-box">${mkIcon('<path d="M3 5.5h7M6.5 3.5v2M8.2 5.5c0 3-2.2 5.4-5.2 6.5M4.5 8.2c1 1.8 2.8 3 5 3.6"/><path d="m10.5 16.5 3-8 3 8M11.6 14h3.8"/>')}${bar('30%')}<span class="mk-chev"></span></div>
+                   <div class="mk-dir"><span class="mk-dir__seg is-on">LTR</span><span class="mk-dir__seg">RTL</span></div>`,
   country:  () => `<div class="mk-box">${mkIcon('<circle cx="10" cy="10" r="7"/><path d="M3.6 7.2h12.8M3.6 12.8h12.8"/><path d="M10 3a11 11 0 0 1 0 14a11 11 0 0 1 0-14"/>')}${bar('34%')}<span class="mk-chev"></span></div>
                    <div class="mk-drive"><span class="mk-arrow"></span><span class="mk-pill">EGP</span><span class="mk-pill">+20</span></div>`,
   date:     () => `<div class="mk-box">${mkIcon(I_CAL)}${bar('34%')}<span class="mk-chev"></span></div>${calendar()}`,
@@ -548,9 +691,12 @@ const MOCKS = {
 
 export function renderMock(control, mount) {
   const build = MOCKS[control.type] || MOCKS.text;
+  /* The palette is the builder, not the built form: it stays in one language
+     whatever the form below it is currently speaking. */
+  const name = control.sample.label;
   mount.innerHTML =
     `<div class="mk" data-type="${control.type}">
-       <span class="mk-label">${control.sample.label}</span>
+       <span class="mk-label">${typeof name === 'object' ? name.en : name}</span>
        ${build()}
      </div>`;
 }
@@ -805,11 +951,9 @@ function dropdown({ options, value, name, id, label, small, required, onChange }
    (mm/dd/yyyy on one machine, dd/mm/yyyy on the next) and a calendar drawn
    by the OS. The preview panel already shows the calendar this design wants;
    this is that calendar, made real. */
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
-                     'August', 'September', 'October', 'November', 'December'];
 const pad2 = (n) => String(n).padStart(2, '0');
 const iso = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-const prettyDate = (d) => `${pad2(d.getDate())} ${MONTH_NAMES[d.getMonth()].slice(0, 3)} ${d.getFullYear()}`;
+const prettyDate = (d) => `${pad2(d.getDate())} ${monthShort(d.getMonth())} ${d.getFullYear()}`;
 
 function datePicker({ name, id, label, withTime, required }) {
   const wrap = el('div', 'fb-date');
@@ -818,7 +962,8 @@ function datePicker({ name, id, label, withTime, required }) {
     type: 'button', id, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': label || name,
   });
   const text = el('span', 'fb-date__value');
-  text.textContent = withTime ? 'Pick a date and time' : 'Pick a date';
+  const placeholder = () => { if (!text.classList.contains('is-set')) text.textContent = t(withTime ? 'pickDateTime' : 'pickDate'); };
+  placeholder();
   btn.append(el('i', 'fb-date__icon'), text);
 
   const pop = el('div', 'fb-date__pop', { role: 'dialog', 'aria-label': label || 'Calendar', 'data-lenis-prevent': true });
@@ -830,8 +975,8 @@ function datePicker({ name, id, label, withTime, required }) {
   let hh = 9, mm = 0;
 
   const head = el('div', 'fb-date__head');
-  const prev = el('button', 'fb-date__nav', { type: 'button', 'aria-label': 'Previous month' });
-  const next = el('button', 'fb-date__nav fb-date__nav--next', { type: 'button', 'aria-label': 'Next month' });
+  const prev = el('button', 'fb-date__nav', { type: 'button', 'aria-label': t('prevMonth') });
+  const next = el('button', 'fb-date__nav fb-date__nav--next', { type: 'button', 'aria-label': t('nextMonth') });
   const title = el('span', 'fb-date__title');
   head.append(prev, title, next);
 
@@ -872,9 +1017,9 @@ function datePicker({ name, id, label, withTime, required }) {
   };
 
   const paint = () => {
-    title.textContent = `${MONTH_NAMES[view.getMonth()]} ${view.getFullYear()}`;
+    title.textContent = `${monthName(view.getMonth())} ${view.getFullYear()}`;
     grid.innerHTML = '';
-    ['M', 'T', 'W', 'T', 'F', 'S', 'S'].forEach((d) => {
+    dowNarrow().forEach((d) => {
       const h = el('span', 'fb-date__dow'); h.textContent = d; grid.appendChild(h);
     });
     const lead = (new Date(view.getFullYear(), view.getMonth(), 1).getDay() + 6) % 7;
@@ -900,6 +1045,13 @@ function datePicker({ name, id, label, withTime, required }) {
   const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
   const open = () => { pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); paint(); };
 
+  FORM.repaint.push(() => {
+    prev.setAttribute('aria-label', t('prevMonth'));
+    next.setAttribute('aria-label', t('nextMonth'));
+    if (picked) emit(); else placeholder();
+    if (!pop.hidden) paint();
+  });
+
   prev.addEventListener('click', () => { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); paint(); });
   next.addEventListener('click', () => { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); paint(); });
   btn.addEventListener('click', () => (pop.hidden ? open() : close()));
@@ -918,15 +1070,17 @@ function timePicker({ name, id, label, required }) {
     type: 'button', id, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': label || name,
   });
   const text = el('span', 'fb-date__value');
-  text.textContent = 'Pick a time';
+  const placeholder = () => { if (!text.classList.contains('is-set')) text.textContent = t('pickTime'); };
+  placeholder();
+  FORM.repaint.push(placeholder);
   btn.append(el('i', 'fb-date__icon fb-date__icon--clock'), text);
 
   const pop = el('div', 'fb-date__pop fb-date__pop--time', { role: 'dialog', 'data-lenis-prevent': true });
   pop.hidden = true;
   const cols = el('div', 'fb-time__cols');
-  const hourList = el('div', 'fb-time__col', { role: 'listbox', 'aria-label': 'Hour', 'data-lenis-prevent': true });
-  const minList = el('div', 'fb-time__col', { role: 'listbox', 'aria-label': 'Minute', 'data-lenis-prevent': true });
-  const merList = el('div', 'fb-time__col fb-time__col--mer', { role: 'listbox', 'aria-label': 'AM or PM' });
+  const hourList = el('div', 'fb-time__col', { role: 'listbox', 'aria-label': t('hour'), 'data-lenis-prevent': true });
+  const minList = el('div', 'fb-time__col', { role: 'listbox', 'aria-label': t('minute'), 'data-lenis-prevent': true });
+  const merList = el('div', 'fb-time__col fb-time__col--mer', { role: 'listbox', 'aria-label': t('ampm') });
   cols.append(hourList, minList, merList);
   pop.appendChild(cols);
 
@@ -982,20 +1136,25 @@ function timePicker({ name, id, label, required }) {
    Not an entropy estimate and not a dictionary. Four things, counted once,
    so the bar the visitor watches and the check that blocks the submit can
    never tell them different stories. */
-const PW_LABELS = ['too easy', 'too easy', 'weak', 'almost there', 'strong'];
-
 function strength(value) {
   const v = String(value == null ? '' : value);
   const missing = [];
-  if (v.length < 10) missing.push('10 characters');
-  if (!/[a-z]/.test(v) || !/[A-Z]/.test(v)) missing.push('mixed case');
-  if (!/\d/.test(v)) missing.push('a digit');
-  if (!/[^A-Za-z0-9]/.test(v)) missing.push('a symbol');
+  if (v.length < 10) missing.push(t('pwLen'));
+  if (!/[a-z]/.test(v) || !/[A-Z]/.test(v)) missing.push(t('pwCase'));
+  if (!/\d/.test(v)) missing.push(t('pwDigit'));
+  if (!/[^A-Za-z0-9]/.test(v)) missing.push(t('pwSymbol'));
   const score = 4 - missing.length;
-  return { score, label: PW_LABELS[score], missing };
+  return { score, label: t('pwScore')[score], missing };
 }
 
-const listOf = (a) => (a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
+/* Arabic joins the last item with a prefix rather than a separate word, which
+   is the sort of thing a template literal with a hard-coded "and" gets wrong. */
+const listOf = (a) => {
+  if (a.length < 2) return a.join('');
+  const head = a.slice(0, -1).join(FORM.lang === 'ar' ? '، ' : ', ');
+  const last = a[a.length - 1];
+  return FORM.lang === 'ar' ? `${head} ${t('and')}${last}` : `${head} ${t('and')} ${last}`;
+};
 
 /* ---------- a mask, which is not a pattern ----------
    A pattern waits until the visitor has finished and then says no. A mask
@@ -1034,7 +1193,7 @@ function buildField(f, idx) {
   wrap.dataset.field = f.key;
 
   const label = el('label', 'fb-label', { for: id });
-  label.textContent = f.label || f.key || `Field ${idx + 1}`;
+  label.textContent = lbl(f.label) || f.key || `Field ${idx + 1}`;
   if (rules.required || rules.requiredTrue) { const s = el('span', 'fb-req'); s.textContent = '*'; label.appendChild(s); }
   wrap.appendChild(label);
 
@@ -1043,6 +1202,11 @@ function buildField(f, idx) {
     case 'select':
       input = dropdown({ options: f.options || [], value: f.value, name: f.key,
                          id, label: f.label, required: !!rules.required });
+      break;
+
+    case 'locale':
+      input = dropdown({ options: (DATASETS[f.ref] || LOCALES).map((c) => ({ value: c.code, label: c.label })),
+                         value: f.value, name: f.key, id, label: lbl(f.label), required: !!rules.required });
       break;
 
     case 'country':
@@ -1093,9 +1257,10 @@ function buildField(f, idx) {
         meter.querySelectorAll('i').forEach((seg, i) => seg.classList.toggle('is-on', !!box.value && i < s.score));
         note.textContent = !box.value ? ''
           : s.score === 4 ? s.label
-          : `${s.label} — needs ${listOf(s.missing.slice(0, 2))}`;
+          : `${s.label} — ${t('pwShort', listOf(s.missing.slice(0, 2)))}`;
       };
       box.addEventListener('input', paint);
+      FORM.repaint.push(paint);
       input.append(box, meter, note);
       paint();
       break;
@@ -1125,6 +1290,7 @@ function buildField(f, idx) {
         note.textContent = r.raw ? `${mask} · ${r.raw.length}/${slots}` : mask;
       };
       box.addEventListener('input', paint);
+      FORM.repaint.push(paint);
       if (f.value != null) { box.value = f.value; }
       input.append(box, raw, note);
       paint();
@@ -1172,10 +1338,11 @@ function buildField(f, idx) {
         const u = uom.querySelector('input[type=hidden]').value;
         const typed = Number(num.value);
         base.textContent = num.value === '' || !Number.isFinite(typed)
-          ? `→ — ${dim.base}`
-          : `→ ${Math.round(typed * factorOf(f, u) * 1e6) / 1e6} ${dim.base}`;
+          ? `${arrow()} — ${dim.base}`
+          : `${arrow()} ${Math.round(typed * factorOf(f, u) * 1e6) / 1e6} ${dim.base}`;
       };
       input.addEventListener('input', paint);   // covers the number and the unit alike
+      FORM.repaint.push(paint);
       input.append(num, uom, base);
       paint();
       break;
@@ -1196,10 +1363,11 @@ function buildField(f, idx) {
       const paint = () => {
         const typed = Number(amt.value);
         stored.textContent = amt.value === '' || !Number.isFinite(typed)
-          ? '→ —'
-          : `→ ${Math.round((typed / pctDiv(f)) * 1e6) / 1e6}`;
+          ? `${arrow()} —`
+          : `${arrow()} ${Math.round((typed / pctDiv(f)) * 1e6) / 1e6}`;
       };
       amt.addEventListener('input', paint);
+      FORM.repaint.push(paint);
       input.append(amt, sign, stored);
       paint();
       break;
@@ -1288,7 +1456,8 @@ function buildField(f, idx) {
       const pad = el('canvas', 'fb-sign__pad', { id });
       const hidden = el('input', null, { type: 'hidden', name: f.key });
       const clear = el('button', 'fb-sign__clear', { type: 'button' });
-      clear.textContent = 'Clear';
+      clear.textContent = t('clear');
+      FORM.repaint.push(() => { clear.textContent = t('clear'); });
       input.append(pad, clear, hidden);
       // the canvas has to be laid out before it can be sized
       requestAnimationFrame(() => {
@@ -1417,18 +1586,18 @@ function buildField(f, idx) {
       input.style.setProperty('--tpl', cols.map((c) => `minmax(0, ${COL_W[c.type] || 1}fr)`).join(' '));
 
       const head = el('div', 'fb-items__row fb-items__row--head');
-      cols.forEach((c) => { const h = el('span'); h.textContent = c.label || c.key; head.appendChild(h); });
+      cols.forEach((c) => { const h = el('span'); h.textContent = lbl(c.label) || c.key; head.appendChild(h); });
       head.appendChild(el('span'));
 
       const body = el('div', 'fb-items__body');
       const foot = el('div', 'fb-items__foot');
       const addBtn = el('button', 'fb-items__add', { type: 'button' });
-      addBtn.textContent = '+ Add row';
+      addBtn.textContent = t('addRow');
       const count = el('span', 'fb-items__count');
 
       const sync = () => {
         const n = body.children.length;
-        count.textContent = `${n} row${n === 1 ? '' : 's'}`;
+        count.textContent = t('rows', n);
         input.dispatchEvent(new Event('input', { bubbles: true }));
       };
       const addRow = (vals) => {
@@ -1458,13 +1627,20 @@ function buildField(f, idx) {
           box.append(cell, tag);
           row.appendChild(box);
         });
-        const del = el('button', 'fb-items__del', { type: 'button', 'aria-label': 'Remove row' });
+        const del = el('button', 'fb-items__del', { type: 'button', 'aria-label': t('removeRow') });
         del.textContent = '×';
         del.addEventListener('click', () => { row.remove(); sync(); });
         row.appendChild(del);
         body.appendChild(row);
         sync();
       };
+
+      FORM.repaint.push(() => {
+        addBtn.textContent = t('addRow');
+        sync();
+        [...head.children].forEach((h, i) => { if (cols[i]) h.textContent = lbl(cols[i].label) || cols[i].key; });
+        body.querySelectorAll('.fb-items__del').forEach((d) => d.setAttribute('aria-label', t('removeRow')));
+      });
 
       addBtn.addEventListener('click', () => addRow());
       foot.append(addBtn, count);
@@ -1607,7 +1783,7 @@ function buildField(f, idx) {
         sizeEl.textContent = file.size > 1048576
           ? `${(file.size / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB`;
         meta.append(nameEl, sizeEl);
-        const drop = el('button', 'fb-file__drop', { type: 'button', 'aria-label': 'Remove file' });
+        const drop = el('button', 'fb-file__drop', { type: 'button', 'aria-label': t('removeFile') });
         drop.textContent = '×';
         drop.addEventListener('click', () => {
           real.value = '';
@@ -1700,21 +1876,22 @@ function buildField(f, idx) {
     }
 
     case 'period': {
-      const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const MON = () => Array.from({ length: 12 }, (_, i) => monthShort(i));
       input = el('div', 'fb-date');
       const hidden = el('input', null, { type: 'hidden', name: f.key });
       const btn = el('button', 'fb-date__btn', {
         type: 'button', id, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': f.label,
       });
       const text = el('span', 'fb-date__value');
-      text.textContent = 'Pick a period';
+      const placeholder = () => { if (!text.classList.contains('is-set')) text.textContent = t('pickPeriod'); };
+      placeholder();
       btn.append(el('i', 'fb-date__icon'), text);
 
       const pop = el('div', 'fb-date__pop', { role: 'dialog', 'data-lenis-prevent': true });
       pop.hidden = true;
       const head = el('div', 'fb-date__head');
-      const prev = el('button', 'fb-date__nav', { type: 'button', 'aria-label': 'Previous year' });
-      const next = el('button', 'fb-date__nav fb-date__nav--next', { type: 'button', 'aria-label': 'Next year' });
+      const prev = el('button', 'fb-date__nav', { type: 'button', 'aria-label': t('prevYear') });
+      const next = el('button', 'fb-date__nav fb-date__nav--next', { type: 'button', 'aria-label': t('nextYear') });
       const title = el('span', 'fb-date__title');
       head.append(prev, title, next);
       const grid = el('div', 'fb-period__grid');
@@ -1727,7 +1904,7 @@ function buildField(f, idx) {
       const paint = () => {
         title.textContent = year;
         grid.innerHTML = '';
-        MON.forEach((m, i) => {
+        MON().forEach((m, i) => {
           const b = el('button', 'fb-period__cell', { type: 'button' });
           b.textContent = m;
           if (month && month.y === year && month.m === i) b.classList.add('is-on');
@@ -1743,6 +1920,13 @@ function buildField(f, idx) {
           grid.appendChild(b);
         });
       };
+      FORM.repaint.push(() => {
+        prev.setAttribute('aria-label', t('prevYear'));
+        next.setAttribute('aria-label', t('nextYear'));
+        if (month) text.textContent = `${monthShort(month.m)} ${month.y}`; else placeholder();
+        if (!pop.hidden) paint();
+      });
+
       prev.addEventListener('click', () => { year -= 1; paint(); });
       next.addEventListener('click', () => { year += 1; paint(); });
       btn.addEventListener('click', () => {
@@ -1780,7 +1964,7 @@ function buildField(f, idx) {
      customErrors instead — pushing minLength onto one cell of a six-box code
      is both wrong and, since it exceeds that cell's maxlength, fatal. */
   const COMPOSITE = ['otp', 'tree', 'lookup', 'multiselect', 'signature', 'richtext', 'lineitems',
-                     'rating', 'select', 'country', 'quantity', 'date', 'time', 'datetime-local', 'color',
+                     'rating', 'select', 'country', 'locale', 'quantity', 'date', 'time', 'datetime-local', 'color',
                      'daterange', 'duration', 'period'];
   const target = COMPOSITE.includes(f.type) ? null
                : input.matches('input, select, textarea') ? input
@@ -1818,9 +2002,27 @@ function buildField(f, idx) {
      and a password with a meter all silently lost their inline error. */
   const native = ['INPUT', 'TEXTAREA', 'SELECT'].includes(input.tagName) ? input : target;
   if (native) {
-    const show = () => { err.textContent = native.validity.valid ? '' : (native.validationMessage || 'Invalid'); };
+    /* validationMessage is written by the browser in the browser's language,
+       not in the form's. In English we let it through, because it is better
+       than anything worth hand-writing; past that the engine says it itself. */
+    const message = () => {
+      const v = native.validity;
+      if (v.valid) return '';
+      if (FORM.lang === 'en') return native.validationMessage || t('invalid');
+      if (v.valueMissing) return t('required');
+      if (v.typeMismatch || v.patternMismatch) return t('badFormat');
+      if (v.rangeUnderflow) return t('tooSmall', native.min);
+      if (v.rangeOverflow) return t('tooBig', native.max);
+      if (v.tooShort) return t('tooShort', native.minLength);
+      if (v.tooLong) return t('tooLong', native.maxLength);
+      return t('invalid');
+    };
+    const show = () => { err.textContent = message(); };
     native.addEventListener('invalid', (e) => { e.preventDefault(); show(); wrap.classList.add('is-invalid'); });
     native.addEventListener('input', () => { show(); wrap.classList.toggle('is-invalid', !native.validity.valid); });
+    // only the native message is ours to rewrite here; a custom one is reissued
+    // by applyLocale, which is the thing that knows the rules
+    FORM.repaint.push(() => { if (!native.validity.valid) show(); });
   }
   return wrap;
 }
@@ -1852,6 +2054,10 @@ function readValue(form, f) {
     case 'country': {
       const row = COUNTRIES.find((c) => c.code === node.value);
       return row ? { code: row.code, name: row.name } : null;
+    }
+    case 'locale': {
+      const row = LOCALES.find((c) => c.code === node.value);
+      return row ? { code: row.code, dir: row.dir } : null;
     }
     case 'masked': {
       const r = applyMask(f.mask || '', node.value);
@@ -2000,6 +2206,42 @@ function applyCascades(form, fields) {
   });
 }
 
+/* Direction is not styling applied at the end; it is a value the form holds,
+   the same way it holds a currency. The field that declares sets: "dir" owns
+   it, and everything the engine drew repaints itself in place. */
+function applyLocale(form, fields) {
+  const src = fields.find((f) => f.sets === 'dir' && f.type === 'locale');
+  const node = src && form.querySelector(`[name="${src.key}"]`);
+  const row = LOCALES.find((c) => c.code === (node ? node.value : 'en')) || LOCALES[0];
+  if (FORM.lang === row.code && form.getAttribute('dir') === row.dir) return;
+
+  FORM.lang = row.code;
+  FORM.dir = row.dir;
+  form.setAttribute('dir', row.dir);
+  form.setAttribute('lang', row.code);
+
+  fields.forEach((f) => {
+    const wrap = form.querySelector(`.fb-field[data-field="${f.key}"]`);
+    const label = wrap && wrap.querySelector('.fb-label');
+    if (!label) return;
+    const star = label.querySelector('.fb-req');
+    label.textContent = lbl(f.label) || f.key;
+    if (star) label.appendChild(star);
+  });
+  FORM.repaint.forEach((fn) => { try { fn(); } catch { /* one control must not take the form down */ } });
+
+  /* A message already on the screen is part of the form's copy too, so it
+     moves language with everything else rather than sitting there in the one
+     the visitor just left. */
+  if (form.querySelector('.fb-field.is-invalid')) {
+    customErrors(form, fields).forEach(([key, msg]) => {
+      const w = form.querySelector(`.fb-field[data-field="${key}"]`);
+      const p = w && w.classList.contains('is-invalid') && w.querySelector('.fb-error');
+      if (p) p.textContent = msg;
+    });
+  }
+}
+
 function applyVisibility(form, fields) {
   const values = currentValues(form, fields);
   fields.forEach((f) => {
@@ -2042,27 +2284,27 @@ function customErrors(form, fields) {
     // hidden inputs are barred from constraint validation, so these ask here
     if (r.required && ['lookup', 'signature', 'multiselect', 'rating', 'richtext', 'otp', 'tree',
                        'daterange', 'period'].includes(f.type) && empty)
-      out.push([f.key, 'Required.']);
+      out.push([f.key, t('required')]);
 
     if (f.type === 'otp' && r.minLength && v && String(v).length < r.minLength)
-      out.push([f.key, `All ${r.minLength} digits.`]);
+      out.push([f.key, t('otpAll', r.minLength)]);
 
     if (f.type === 'tree' && r.leafOnly && v && v.id) {
       const node = form.querySelector(`.fb-tree__node[data-id="${v.id}"]`);
-      if (node && node.dataset.leaf !== 'true') out.push([f.key, 'Pick a node with no children.']);
+      if (node && node.dataset.leaf !== 'true') out.push([f.key, t('leafOnly')]);
     }
 
     if (r.required && f.type === 'duration' && (!v || !v.minutes))
-      out.push([f.key, 'Required.']);
+      out.push([f.key, t('required')]);
 
     if (r.minSelected && (!Array.isArray(v) || v.length < r.minSelected))
-      out.push([f.key, `Choose at least ${r.minSelected}.`]);
+      out.push([f.key, t('minSelected', r.minSelected)]);
 
     if (r.minRows && (!Array.isArray(v) || v.length < r.minRows))
-      out.push([f.key, `At least ${r.minRows} row${r.minRows === 1 ? '' : 's'}.`]);
+      out.push([f.key, t('minRows', r.minRows)]);
 
     if (r.maxRows && Array.isArray(v) && v.length > r.maxRows)
-      out.push([f.key, `No more than ${r.maxRows} rows.`]);
+      out.push([f.key, t('maxRows', r.maxRows)]);
 
     // a rule that only means anything on a repeating group
     if (r.unique && Array.isArray(v)) {
@@ -2074,53 +2316,52 @@ function customErrors(form, fields) {
         seen.add(key);
         return false;
       });
-      if (dupe) out.push([f.key, `Two rows share the same ${r.unique}.`]);
+      if (dupe) out.push([f.key, t('dupe', r.unique)]);
     }
 
     if (r.strength && f.type === 'password' && v) {
       const s = strength(v);
-      if (s.score < 4) out.push([f.key, `Still needs ${listOf(s.missing)}.`]);
+      if (s.score < 4) out.push([f.key, t('pwNeeds', listOf(s.missing))]);
     }
 
     if (f.type === 'quantity') {
-      if (r.required && !v) out.push([f.key, 'Required.']);
-      else if (v && r.min != null && v.base < r.min) out.push([f.key, `At least ${r.min} ${v.baseUom}.`]);
-      else if (v && r.max != null && v.base > r.max) out.push([f.key, `No more than ${r.max} ${v.baseUom}.`]);
+      if (r.required && !v) out.push([f.key, t('required')]);
+      else if (v && r.min != null && v.base < r.min) out.push([f.key, t('qtyMin', r.min, v.baseUom)]);
+      else if (v && r.max != null && v.base > r.max) out.push([f.key, t('qtyMax', r.max, v.baseUom)]);
     }
 
     if (r.complete && f.type === 'masked' && v && v.value.length < maskSlots(f.mask || ''))
-      out.push([f.key, `Needs all ${maskSlots(f.mask || '')} characters — ${f.mask}.`]);
+      out.push([f.key, t('maskAll', maskSlots(f.mask || ''), f.mask)]);
 
     if (r.requiredTrue && v !== true)
-      out.push([f.key, 'This has to be switched on to continue.']);
+      out.push([f.key, t('mustBeOn')]);
 
     if (r.min != null && f.type === 'rating' && Number(v) < r.min)
-      out.push([f.key, `At least ${r.min}.`]);
+      out.push([f.key, t('atLeast', r.min)]);
 
     if (r.notPast && v && f.type === 'daterange' && new Date(v.from) < today)
-      out.push([f.key, 'Cannot start in the past.']);
+      out.push([f.key, t('noPastStart')]);
     else if (r.notPast && v && f.type === 'period' && new Date(`${v}-01`) < new Date(today.getFullYear(), today.getMonth(), 1))
-      out.push([f.key, 'That period is already closed.']);
+      out.push([f.key, t('periodClosed')]);
     else if (r.notPast && v && !['daterange', 'period'].includes(f.type) && new Date(v) < today)
-      out.push([f.key, 'Cannot be in the past.']);
+      out.push([f.key, t('noPast')]);
 
     if (f.type === 'daterange' && v) {
       const days = Math.round((new Date(v.to) - new Date(v.from)) / 86400000) + 1;
-      if (days <= 0) out.push([f.key, 'The end must not precede the start.']);
-      else if (r.maxSpan && days > r.maxSpan) out.push([f.key, `No longer than ${r.maxSpan} days.`]);
+      if (days <= 0) out.push([f.key, t('endBeforeStart')]);
+      else if (r.maxSpan && days > r.maxSpan) out.push([f.key, t('maxSpan', r.maxSpan)]);
     }
 
     if (f.type === 'duration' && v) {
-      const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
-      if (r.min && v.minutes < r.min) out.push([f.key, `At least ${plural(Math.round(r.min / 60), 'hour')}.`]);
-      if (r.max && v.minutes > r.max) out.push([f.key, `At most ${plural(Math.round(r.max / 1440), 'day')}.`]);
+      if (r.min && v.minutes < r.min) out.push([f.key, t('minHours', Math.round(r.min / 60))]);
+      if (r.max && v.minutes > r.max) out.push([f.key, t('maxDays', Math.round(r.max / 1440))]);
     }
 
     if (r.maxSize && f.type === 'file') {
       const node = form.querySelector(`[name="${f.key}"]`);
       const file = node && node.files && node.files[0];
       if (file && file.size > r.maxSize * 1024 * 1024)
-        out.push([f.key, `Must be under ${r.maxSize} MB.`]);
+        out.push([f.key, t('maxSize', r.maxSize)]);
     }
   });
 
@@ -2178,7 +2419,7 @@ export function renderFilters(schema, mount, queryMount) {
     box.dataset.filter = f.key;
 
     const lab = el('span', 'fb-filter__label');
-    lab.textContent = f.label || f.key;
+    lab.textContent = (f.label && typeof f.label === 'object' ? f.label.en : f.label) || f.key;
     const kindTag = el('em', 'fb-filter__kind');
     kindTag.textContent = kind === 'dateRange' ? 'from – to'
       : kind === 'range' ? 'min – max'
@@ -2224,6 +2465,7 @@ export function renderFilters(schema, mount, queryMount) {
 
 export function renderForm(schema, mount) {
   mount.innerHTML = '';
+  FORM.repaint = [];                 // the old form's repainters die with it
   const fields = (schema && schema.fields) || [];
 
   if (!fields.length) {
@@ -2258,14 +2500,20 @@ export function renderForm(schema, mount) {
 
   const actions = el('div', 'fb-actions');
   const submit = el('button', 'fb-submit', { type: 'submit' });
-  submit.textContent = 'Submit';
+  submit.textContent = t('submit');
+  FORM.repaint.push(() => { submit.textContent = t('submit'); });
   actions.appendChild(submit);
   const out = el('pre', 'fb-output', { 'aria-live': 'polite' });
   form.append(actions, out);
 
   // A computed field answers to the whole form, so it re-runs on any change —
   // and so does every condition, because one answer can reveal the next question.
-  const refresh = () => { applyVisibility(form, fields); applyCascades(form, fields); recompute(form, fields); };
+  const refresh = () => {
+    applyLocale(form, fields);
+    applyVisibility(form, fields);
+    applyCascades(form, fields);
+    recompute(form, fields);
+  };
   form.addEventListener('input', refresh);
   form.addEventListener('change', refresh);
   refresh();
@@ -2332,10 +2580,10 @@ export function initFormBuilder() {
   gallery.dataset.ready = '1';
 
   const START = () => ({ fields: [
-    { key: 'company', label: 'Company name', type: 'text', width: 'w-50',
-      placeholder: 'Acme Trading', rules: { required: true, minLength: 3 } },
-    { key: 'plan', label: 'Plan', type: 'select', width: 'w-50',
-      options: ['Starter', 'Growth', 'Enterprise'], value: 'Growth' },
+    { key: 'company', label: { en: 'Company name', ar: 'اسم الشركة', fr: 'Raison sociale' },
+      type: 'text', width: 'w-50', placeholder: 'Acme Trading', rules: { required: true, minLength: 3 } },
+    { key: 'plan', label: { en: 'Plan', ar: 'الباقة', fr: 'Formule' },
+      type: 'select', width: 'w-50', options: ['Starter', 'Growth', 'Enterprise'], value: 'Growth' },
   ]});
 
   let schema = START();
@@ -2356,6 +2604,7 @@ export function initFormBuilder() {
     if (!condEl) return;
     condEl.innerHTML = '';
 
+    const name = (f) => (f.label && typeof f.label === 'object' ? f.label.en : f.label) || f.key;
     const targets = schema.fields.filter((f) => !['computed', 'signature', 'file', 'lineitems'].includes(f.type));
     if (!targets.length) {
       const note = el('p', 'fb-rules__none');
@@ -2365,7 +2614,7 @@ export function initFormBuilder() {
     }
 
     const fieldOpts = [{ value: '', label: 'always shown' }]
-      .concat(targets.map((f) => ({ value: f.key, label: f.label || f.key })));
+      .concat(targets.map((f) => ({ value: f.key, label: name(f) })));
 
     condEl.appendChild(dropdown({
       options: fieldOpts, value: cond ? cond.field : '', name: '__cond_field',
