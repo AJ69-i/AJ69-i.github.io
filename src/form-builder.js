@@ -67,6 +67,9 @@ const T = {
     pwNeeds: (l) => `Still needs ${l}.`, pwShort: (l) => `needs ${l}`,
     pwScore: ['too easy', 'too easy', 'weak', 'almost there', 'strong'],
     pwLen: '10 characters', pwCase: 'mixed case', pwDigit: 'a digit', pwSymbol: 'a symbol',
+    qrSample: 'Paste a sample', qrExpects: (w) => `Expects ${w}.`,
+    qrUnread: (w) => `That is not ${w}.`, qrStrict: (w) => `The payload has to be ${w}.`,
+    qrUrl: 'a web address', qrGs1: 'a GS1 element string', qrVcard: 'a contact card', qrText: 'any text',
     and: 'and',
   },
   ar: {
@@ -95,6 +98,9 @@ const T = {
     pwNeeds: (l) => `ما زال ينقصها ${l}.`, pwShort: (l) => `ينقصها ${l}`,
     pwScore: ['ضعيفة جدًا', 'ضعيفة جدًا', 'ضعيفة', 'أوشكت', 'قوية'],
     pwLen: '10 خانات', pwCase: 'حروف كبيرة وصغيرة', pwDigit: 'رقم', pwSymbol: 'رمز',
+    qrSample: 'الصق عينة', qrExpects: (w) => `بيتوقع ${w}.`,
+    qrUnread: (w) => `ده مش ${w}.`, qrStrict: (w) => `المحتوى لازم يكون ${w}.`,
+    qrUrl: 'رابط ويب', qrGs1: 'سلسلة GS1', qrVcard: 'كارت تعارف', qrText: 'أي نص',
     and: 'و',
   },
   fr: {
@@ -125,9 +131,82 @@ const T = {
     pwNeeds: (l) => `Il manque encore ${l}.`, pwShort: (l) => `il manque ${l}`,
     pwScore: ['trop simple', 'trop simple', 'faible', 'presque', 'fort'],
     pwLen: '10 caractères', pwCase: 'majuscules et minuscules', pwDigit: 'un chiffre', pwSymbol: 'un symbole',
+    qrSample: 'Coller un exemple', qrExpects: (w) => `Attend ${w}.`,
+    qrUnread: (w) => `Ce n'est pas ${w}.`, qrStrict: (w) => `Le contenu doit être ${w}.`,
+    qrUrl: 'une adresse web', qrGs1: 'une chaîne GS1', qrVcard: 'une carte de contact', qrText: 'du texte',
     and: 'et',
   },
 };
+
+/* ---------- a scan is a payload, not a number ----------
+   A barcode carries one identifier. A QR code carries a structured payload,
+   and the useful part of that on a counter or in a warehouse is that one scan
+   answers several questions at once. So the field declares the shape it
+   expects and where each part belongs, and the engine spreads the scan across
+   the form. Nothing here touches a camera: a scanner is a keyboard, and this
+   is the field that receives what it types. */
+const PAYLOADS = {
+  url: {
+    tkey: 'qrUrl',
+    sample: 'https://acme.example/p/1042?ref=shelf',
+    parse: (v) => {
+      try {
+        const u = new URL(String(v).trim());
+        return { url: u.href, host: u.host, path: u.pathname };
+      } catch { return null; }
+    },
+  },
+
+  /* A GS1 element string is the one most people have scanned without knowing:
+     application identifiers in brackets, each with its own meaning. */
+  gs1: {
+    tkey: 'qrGs1',
+    sample: '(01)06281234567890(10)LOT42(17)261231(21)SER0001',
+    parse: (v) => {
+      const AI = { '01': 'gtin', '10': 'batch', '17': 'expiry', '21': 'serial' };
+      const out = {};
+      const re = /\((\d{2})\)([^(]+)/g;
+      let m;
+      while ((m = re.exec(String(v)))) { const k = AI[m[1]]; if (k) out[k] = m[2].trim(); }
+      if (out.expiry && /^\d{6}$/.test(out.expiry))
+        out.expiry = `20${out.expiry.slice(0, 2)}-${out.expiry.slice(2, 4)}-${out.expiry.slice(4, 6)}`;
+      return Object.keys(out).length ? out : null;
+    },
+  },
+
+  vcard: {
+    tkey: 'qrVcard',
+    sample: 'MECARD:N:Ahmed Jab;ORG:Trio Services;TEL:+201501715523;EMAIL:ahmedjab7697@gmail.com;;',
+    parse: (v) => {
+      const src = String(v).trim();
+      const out = {};
+      if (/^MECARD:/i.test(src)) {
+        src.replace(/^MECARD:/i, '').split(';').forEach((pair) => {
+          const at = pair.indexOf(':');
+          if (at < 1) return;
+          const k = { N: 'name', ORG: 'org', TEL: 'tel', EMAIL: 'email' }[pair.slice(0, at).toUpperCase()];
+          if (k) out[k] = pair.slice(at + 1).trim();
+        });
+      } else {
+        src.split(/\r?\n/).forEach((line) => {
+          const at = line.indexOf(':');
+          if (at < 1) return;
+          const tag = line.slice(0, at).split(';')[0].toUpperCase();
+          const k = { FN: 'name', ORG: 'org', TEL: 'tel', EMAIL: 'email' }[tag];
+          if (k) out[k] = line.slice(at + 1).trim();
+        });
+      }
+      return Object.keys(out).length ? out : null;
+    },
+  },
+
+  text: {
+    tkey: 'qrText',
+    sample: 'SHELF-A14',
+    parse: (v) => (String(v).trim() ? { text: String(v).trim() } : null),
+  },
+};
+const payloadOf = (f) => PAYLOADS[f && f.payload] || PAYLOADS.text;
 
 /* One rendered form at a time in this demo, so its language lives here rather
    than being threaded through the signature of everything that draws a string.
@@ -321,6 +400,11 @@ export const CONTROLS = [
     hint: 'Scanner-first: the field takes a scan or a typed code and normalises both.',
     sample: { key: 'sku', label: 'SKU / Barcode', type: 'barcode', placeholder: 'Scan or type' } },
 
+  { type: 'qrcode', label: 'QR Scan', group: 'Text', icon: svg('<rect x="3" y="3" width="5" height="5" rx="1"/><rect x="12" y="3" width="5" height="5" rx="1"/><rect x="3" y="12" width="5" height="5" rx="1"/><path d="M12 12h2v2h-2zM15.5 15.5h1.5v1.5h-1.5zM12 16.5h1.5M16.5 12h.5"/>'),
+    hint: 'A barcode carries one identifier; a QR code carries a payload with a shape. The field declares the shape it expects and where each part belongs, so one scan answers several questions at once — try it with a Barcode and a Date in the form.',
+    sample: { key: 'scan', label: 'Pack label', type: 'qrcode', payload: 'gs1',
+              fills: { gtin: 'sku', expiry: 'golive' } } },
+
   { type: 'masked', label: 'Masked', group: 'Text', icon: svg('<rect x="2.5" y="6" width="4" height="8" rx="1"/><path d="M7.8 10h1.4"/><rect x="10.5" y="6" width="4" height="8" rx="1"/><path d="M15.8 10h1.7"/>'),
     hint: 'A format that shapes what you type instead of rejecting it afterwards. The separators are put in for you, and a character that does not belong in the next slot never lands.',
     sample: { key: 'taxid', label: 'Tax registration no.', type: 'masked', mask: '000-000-000' } },
@@ -381,6 +465,7 @@ const RULES = {
   otp:       [rule('required', 'required', true), rule('minLength', 'full length', 6)],
   barcode:   [rule('required', 'required', true), rule('pattern', 'alphanumeric', '^[A-Za-z0-9-]{4,}$')],
   masked:    [rule('required', 'required', true), rule('complete', 'every slot filled', true)],
+  qrcode:    [rule('required', 'required', true), rule('strict', 'payload must parse', true)],
   tree:      [rule('required', 'required', true), rule('leafOnly', 'leaf nodes only', true)],
   lookup:    [rule('required', 'required', true)],
   lineitems: [rule('minRows', 'min rows', 2), rule('maxRows', 'max rows', 5), rule('unique', 'no duplicate rows', 'desc')],
@@ -404,7 +489,7 @@ const NO_RULES = {
 const FILTER_KIND = {
   text: 'contains', textarea: 'contains', email: 'contains', url: 'contains',
   tel: 'contains', richtext: 'contains', lookup: 'contains', barcode: 'contains', tree: 'contains',
-  country: 'contains', masked: 'contains', locale: 'contains',
+  country: 'contains', masked: 'contains', locale: 'contains', qrcode: 'contains',
   number: 'range', currency: 'range', range: 'range', rating: 'range', percent: 'range', quantity: 'range',
   date: 'dateRange', 'datetime-local': 'dateRange', time: 'dateRange', period: 'dateRange',
   duration: 'range',
@@ -449,6 +534,7 @@ const HELP = {
   otp: 'Six digits, valid for ten minutes.',
   barcode: 'Scan it, or type the code printed under the bars.',
   masked: 'Exactly as printed on the certificate — the dashes are added for you.',
+  qrcode: 'Scan the label on the pack — the rest of the line fills itself in.',
   tree: 'Pick the most specific node that applies.',
   lookup: 'Start typing a name or a customer code.',
   lineitems: 'One row per item — the total updates as you type.',
@@ -462,7 +548,7 @@ const WIDTHS = ['w-25', 'w-33', 'w-50', 'w-75', 'w-100'];
 const NATURAL_WIDTH = {
   textarea: 'w-100', checkbox: 'w-100', radio: 'w-100', multiselect: 'w-100',
   richtext: 'w-100', signature: 'w-100', lineitems: 'w-100', lookup: 'w-100', file: 'w-100',
-  tree: 'w-100', otp: 'w-50', barcode: 'w-50', percent: 'w-33',
+  tree: 'w-100', otp: 'w-50', barcode: 'w-50', percent: 'w-33', qrcode: 'w-100',
   daterange: 'w-75', duration: 'w-50', period: 'w-50',
 };
 
@@ -659,6 +745,21 @@ const MOCKS = {
                      `<span class="mk-otp__cell${i < 3 ? ' is-on' : ''}" style="--t:${(i / 5).toFixed(3)}">${
                        i < 3 ? '<i class="mk-dot"></i>' : ''}</span>`).join('')}</div>`,
 
+  /* A stylised module field with three finder blocks — a picture of a QR
+     code, drawn from its own coordinates, not an encoding of anything. */
+  qrcode:   () => {
+    const M = 11;
+    let cells = '';
+    for (let y = 0; y < M; y++) {
+      for (let x = 0; x < M; x++) {
+        const finder = (x < 3 && y < 3) || (x > M - 4 && y < 3) || (x < 3 && y > M - 4);
+        const on = finder || (x * 7 + y * 5 + ((x * y) % 3)) % 3 === 0;
+        cells += `<i class="mk-qr__m${on ? ' is-on' : ''}" style="--t:${(x / (M - 1)).toFixed(3)}"></i>`;
+      }
+    }
+    return `<div class="mk-qr">${cells}</div>
+            <div class="mk-mask">(01) (10) (17) (21)</div>`;
+  },
   masked:   () => `<div class="mk-box">${bar('30px')}<span class="mk-sep">-</span>${bar('30px')}<span class="mk-sep">-</span>${bar('30px')}</div>
                    <div class="mk-mask">000-000-000</div>`,
   barcode:  () => `<div class="mk-box">${mkIcon('<path d="M3 4v12M6 4v12M8.5 4v12M11.5 4v9M14 4v12M17 4v12"/>')}${bar('34%')}</div>
@@ -1030,14 +1131,26 @@ function datePicker({ name, id, label, withTime, required }) {
     pop.appendChild(timeRow);
   }
 
-  const emit = () => {
+  const emit = (silent) => {
     if (!picked) { hidden.value = ''; return; }
     hidden.value = withTime ? `${iso(picked)}T${pad2(hh)}:${pad2(mm)}` : iso(picked);
     text.textContent = withTime
       ? `${prettyDate(picked)} · ${pad2(hh % 12 || 12)}:${pad2(mm)} ${hh < 12 ? 'AM' : 'PM'}`
       : prettyDate(picked);
     text.classList.add('is-set');
-    hidden.dispatchEvent(new Event('input', { bubbles: true }));
+    if (!silent) hidden.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+
+  /* A date can be the answer to something other than the calendar — a scanned
+     expiry, say. Silent for the same reason the dropdown's setter is: whoever
+     calls it is already inside the form's own input handler. */
+  wrap.setValue = (v) => {
+    const d = new Date(String(v));
+    if (Number.isNaN(d.getTime())) return false;
+    picked = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    view = new Date(picked.getFullYear(), picked.getMonth(), 1);
+    emit(true);
+    return true;
   };
 
   const paint = () => {
@@ -1287,6 +1400,45 @@ function buildField(f, idx) {
       box.addEventListener('input', paint);
       FORM.repaint.push(paint);
       input.append(box, meter, note);
+      paint();
+      break;
+    }
+
+    case 'qrcode': {
+      const spec = payloadOf(f);
+      input = el('div', 'fb-qr');
+      const box = el('input', 'fb-input', { id, type: 'text', name: f.key,
+        required: !!rules.required, placeholder: f.placeholder || 'Scan, or paste a payload',
+        autocomplete: 'off', spellcheck: 'false' });
+
+      /* There is no camera on a portfolio page, and a QR field in production is
+         nearly always a keyboard-wedge scanner anyway. So the honest way to let
+         a visitor try it is to hand them a real payload of the declared shape. */
+      const sample = el('button', 'fb-qr__sample', { type: 'button' });
+      const out = el('div', 'fb-qr__out');
+      const paint = () => {
+        sample.textContent = t('qrSample');
+        const raw = box.value.trim();
+        const parsed = raw ? spec.parse(raw) : null;
+        input.dataset.read = parsed ? 'yes' : raw ? 'no' : '';
+        out.innerHTML = '';
+        if (!raw) { out.textContent = t('qrExpects', t(spec.tkey)); return; }
+        if (!parsed) { out.textContent = t('qrUnread', t(spec.tkey)); return; }
+        Object.entries(parsed).forEach(([k, v]) => {
+          const chip = el('span', 'fb-qr__part');
+          if (f.fills && f.fills[k]) chip.classList.add('is-routed');
+          const key = el('em'); key.textContent = k;
+          chip.append(key, document.createTextNode(String(v)));
+          out.appendChild(chip);
+        });
+      };
+      sample.addEventListener('click', () => {
+        box.value = spec.sample;
+        box.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      box.addEventListener('input', paint);
+      FORM.repaint.push(paint);
+      input.append(box, sample, out);
       paint();
       break;
     }
@@ -1990,7 +2142,7 @@ function buildField(f, idx) {
      customErrors instead — pushing minLength onto one cell of a six-box code
      is both wrong and, since it exceeds that cell's maxlength, fatal. */
   const COMPOSITE = ['otp', 'tree', 'lookup', 'multiselect', 'signature', 'richtext', 'lineitems',
-                     'rating', 'select', 'country', 'locale', 'quantity', 'date', 'time', 'datetime-local', 'color',
+                     'rating', 'select', 'country', 'locale', 'quantity', 'qrcode', 'date', 'time', 'datetime-local', 'color',
                      'daterange', 'duration', 'period'];
   const target = COMPOSITE.includes(f.type) ? null
                : input.matches('input, select, textarea') ? input
@@ -2093,6 +2245,11 @@ function readValue(form, f) {
     case 'masked': {
       const r = applyMask(f.mask || '', node.value);
       return r.raw ? { value: r.raw, display: r.display } : null;
+    }
+    case 'qrcode': {
+      const raw = String(node.value || '').trim();
+      if (!raw) return null;
+      return { raw, format: f.payload || 'text', parsed: payloadOf(f).parse(raw) };
     }
     case 'computed':
       return Number(node.dataset.value || 0);
@@ -2273,6 +2430,42 @@ function applyLocale(form, fields) {
   }
 }
 
+/* The other half of a scan. A cascade spreads the columns of a row the engine
+   already holds; this spreads the parts of a payload that arrived from outside,
+   which is why it parses first and writes nothing it could not read. */
+function applyScans(form, fields) {
+  const seen = (form.__scan || (form.__scan = {}));
+
+  fields.filter((f) => f.type === 'qrcode' && f.fills).forEach((f) => {
+    const src = form.querySelector(`[name="${f.key}"]`);
+    if (!src) return;
+    if (seen[f.key] === src.value) return;      // only on a new scan
+    seen[f.key] = src.value;
+
+    const parsed = src.value.trim() ? payloadOf(f).parse(src.value) : null;
+    if (!parsed) return;
+
+    Object.entries(f.fills).forEach(([part, key]) => {
+      if (parsed[part] == null) return;
+      const target = fields.find((x) => x.type !== 'qrcode' && baseKey(x.key) === key);
+      if (!target) return;
+      const node = form.querySelector(`[name="${target.key}"]`);
+      if (!node) return;
+      if (node.type === 'hidden') {
+        /* Composite controls keep their value in a hidden input and expose a
+           setter on their wrapper. Which wrapper that is depends on the type,
+           so ask rather than guess. */
+        const wrap = node.closest('.fb-field');
+        let host = node.parentElement;
+        while (host && host !== wrap && typeof host.setValue !== 'function') host = host.parentElement;
+        if (host && typeof host.setValue === 'function') host.setValue(parsed[part]);
+        return;
+      }
+      node.value = parsed[part];                // silent: refresh is already running
+    });
+  });
+}
+
 function applyVisibility(form, fields) {
   const values = currentValues(form, fields);
   fields.forEach((f) => {
@@ -2360,6 +2553,9 @@ function customErrors(form, fields) {
       else if (v && r.min != null && v.base < r.min) out.push([f.key, t('qtyMin', r.min, v.baseUom)]);
       else if (v && r.max != null && v.base > r.max) out.push([f.key, t('qtyMax', r.max, v.baseUom)]);
     }
+
+    if (r.strict && f.type === 'qrcode' && v && !v.parsed)
+      out.push([f.key, t('qrStrict', t(payloadOf(f).tkey))]);
 
     if (r.complete && f.type === 'masked' && v && v.value.length < maskSlots(f.mask || ''))
       out.push([f.key, t('maskAll', maskSlots(f.mask || ''), f.mask)]);
@@ -2541,8 +2737,9 @@ export function renderForm(schema, mount) {
   // and so does every condition, because one answer can reveal the next question.
   const refresh = () => {
     applyLocale(form, fields);
-    applyVisibility(form, fields);
     applyCascades(form, fields);
+    applyScans(form, fields);
+    applyVisibility(form, fields);   // last: a condition judges the values as they now are
     recompute(form, fields);
   };
   form.addEventListener('input', refresh);

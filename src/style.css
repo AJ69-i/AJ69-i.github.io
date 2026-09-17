@@ -889,3 +889,19 @@ strong { font-weight: 600; color: var(--text); }
 .fb-select__list.is-up,
 .fb-lookup__list.is-up { top: auto; bottom: calc(100% + 6px); }
 .fb-date__pop.is-up { top: auto; bottom: calc(100% + 6px); }
+
+/* ---------- QR: a payload with a shape ---------- */
+.mk-qr { display: grid; grid-template-columns: repeat(11, 1fr); gap: 2px; width: fit-content; padding: 0.55rem; background: var(--bg); border: 1px solid var(--mk-line); border-radius: 9px; }
+.mk-qr__m { width: 9px; height: 9px; border-radius: 1.5px; background: rgba(243,240,234,0.05); }
+.mk-qr__m.is-on { background: linear-gradient(115deg, rgba(243,240,234,0.34), rgba(243,240,234,0.13)); opacity: calc(1 - 0.45 * var(--t, 0)); }
+
+.fb-qr { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.fb-qr .fb-input { flex: 1 1 220px; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
+.fb-qr__sample { flex: 0 0 auto; font-family: var(--font-display); font-size: 0.72rem; font-weight: 600; color: var(--accent); background: none; border: 1px solid var(--accent-dim); border-radius: 100px; padding: 0.4rem 0.8rem; cursor: pointer; transition: background .2s var(--ease), color .2s var(--ease); }
+.fb-qr__sample:hover { background: var(--accent); color: #0a0a0b; border-color: var(--accent); }
+.fb-qr__out { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: 0.35rem; font-size: 0.74rem; color: var(--muted-2); }
+.fb-qr[data-read="no"] .fb-qr__out { color: #e88b7d; }
+.fb-qr__part { display: inline-flex; align-items: baseline; gap: 0.4rem; padding: 0.22rem 0.5rem; border: 1px solid var(--line-soft); border-radius: 6px; background: rgba(243,240,234,0.03); color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.72rem; }
+.fb-qr__part em { font-style: normal; font-size: 0.64rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-2); }
+.fb-qr__part.is-routed { border-color: var(--accent-dim); background: rgba(233,184,114,0.07); }
+.fb-qr__part.is-routed em { color: var(--accent); }
