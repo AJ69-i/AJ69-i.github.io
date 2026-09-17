@@ -55,6 +55,10 @@ export const CONTROLS = [
     hint: 'A small integer scale. Submits a number, not a label.',
     sample: { key: 'score', label: 'Satisfaction', type: 'rating', max: 5, value: 4 } },
 
+  { type: 'percent', label: 'Percentage', group: 'Numbers', icon: svg('<path d="M5.5 14.5 14.5 5.5"/><circle cx="6.6" cy="6.6" r="2.3"/><circle cx="13.4" cy="13.4" r="2.3"/>'),
+    hint: 'A rate that declares its own scale. 14 and 0.14 are the same discount stored two different ways \u2014 the schema says which, so nothing downstream has to guess.',
+    sample: { key: 'discount', label: 'Discount', type: 'percent', scale: 1, min: 0, max: 100, value: 10 } },
+
   /* ---- Choice ---- */
   { type: 'select', label: 'Select', group: 'Choice', icon: svg('<rect x="3" y="6" width="14" height="8" rx="2"/><path d="m11 9 2 2 2-2"/>'),
     hint: 'One choice from a list. Options come from the schema, not the code.',
@@ -171,6 +175,7 @@ const RULES = {
   password:  [rule('required', 'required', true), rule('minLength', 'min length', 8), rule('pattern', PATTERNS.password.label, PATTERNS.password.value)],
   number:    [rule('required', 'required', true), rule('min', 'min', 1), rule('max', 'max', 500)],
   currency:  [rule('required', 'required', true), rule('min', 'min', 0), rule('max', 'max', 1000000)],
+  percent:   [rule('required', 'required', true), rule('max', 'cap at 25 %', 25)],
   range:     [],
   rating:    [rule('required', 'required', true), rule('min', 'at least', 3)],
   select:    [rule('required', 'required', true)],
@@ -213,7 +218,7 @@ const NO_RULES = {
 const FILTER_KIND = {
   text: 'contains', textarea: 'contains', email: 'contains', url: 'contains',
   tel: 'contains', richtext: 'contains', lookup: 'contains', barcode: 'contains', tree: 'contains',
-  number: 'range', currency: 'range', range: 'range', rating: 'range',
+  number: 'range', currency: 'range', range: 'range', rating: 'range', percent: 'range',
   date: 'dateRange', 'datetime-local': 'dateRange', time: 'dateRange', period: 'dateRange',
   duration: 'range',
   select: 'anyOf', radio: 'anyOf', multiselect: 'anyOf', checkbox: 'anyOf',
@@ -233,6 +238,7 @@ const HELP = {
   password: 'Rotated every 90 days; you can change it later.',
   number: 'Named users, not concurrent sessions.',
   currency: 'Excluding VAT.',
+  percent: 'Applied to the line total, before tax.',
   range: 'Drag to the nearest five per cent.',
   rating: 'One is poor, five is excellent.',
   select: 'You can change plan at any renewal.',
@@ -265,7 +271,7 @@ const WIDTHS = ['w-25', 'w-33', 'w-50', 'w-75', 'w-100'];
 const NATURAL_WIDTH = {
   textarea: 'w-100', checkbox: 'w-100', radio: 'w-100', multiselect: 'w-100',
   richtext: 'w-100', signature: 'w-100', lineitems: 'w-100', lookup: 'w-100', file: 'w-100',
-  tree: 'w-100', otp: 'w-50', barcode: 'w-50',
+  tree: 'w-100', otp: 'w-50', barcode: 'w-50', percent: 'w-33',
   daterange: 'w-75', duration: 'w-50', period: 'w-50',
 };
 
@@ -407,6 +413,8 @@ const MOCKS = {
 
   tel:      () => `<div class="mk-box"><span class="mk-pill">+20 <i class="mk-caret"></i></span>${bar('40%')}</div>`,
   currency: () => `<div class="mk-box"><span class="mk-pill">EGP <i class="mk-caret"></i></span>${bar('30%')}</div>`,
+  percent:  () => `<div class="mk-box">${bar('24%')}<span class="mk-unit">%</span></div>
+                   <div class="mk-scale"><span class="mk-scale__seg">0\u2013100</span><span class="mk-scale__seg is-on">0\u20131</span></div>`,
   range:    () => `<div class="mk-track"><span class="mk-fill"></span><span class="mk-knob"></span></div>`,
   rating:   () => { const filled = [1, 1, 1, 1, 0];
                     return `<div class="mk-stars">${filled
@@ -508,6 +516,11 @@ const STAR = `<svg viewBox="0 0 20 20" width="19" height="19" fill="none" stroke
    field. Hand-written, because eval() and new Function() have no business
    running a string that came out of a config file. */
 const baseKey = (k) => String(k).replace(/_\d+$/, '');
+
+/* "scale" is the range the stored value lives in: 1 stores a fraction
+   (10 % -> 0.1), 100 stores the figure exactly as typed. The divisor falls out
+   of it, and the VAT-is-14-or-0.14 argument never has to happen again. */
+const pctDiv = (f) => (Number(f && f.scale) === 1 ? 100 : 1);
 const tokenize = (src) => String(src).match(/[A-Za-z_]\w*|\d+(?:\.\d+)?|[()+\-*/]/g) || [];
 
 function evalTokens(tokens, scope) {
@@ -576,9 +589,13 @@ function recompute(form, fields) {
 
   const flat = {};
   fields.forEach((f) => {
-    if (!['number', 'range', 'rating', 'currency'].includes(f.type)) return;
+    if (!['number', 'range', 'rating', 'currency', 'percent'].includes(f.type)) return;
     const n = form.querySelector(`[name="${f.key}"]`);
-    if (n) flat[baseKey(f.key)] = Number(n.value) || 0;
+    if (!n) return;
+    /* A percentage enters an expression the way it will be stored, never the
+       way it was typed \u2014 otherwise every formula has to remember which of
+       the two scales this particular field happened to declare. */
+    flat[baseKey(f.key)] = (Number(n.value) || 0) / (f.type === 'percent' ? pctDiv(f) : 1);
   });
 
   const scope = {
@@ -952,6 +969,30 @@ function buildField(f, idx) {
       const amt = el('input', 'fb-input', { id, type: 'number', name: f.key, step: '0.01', min: 0, required: !!rules.required });
       if (f.value != null) amt.value = f.value;
       input.append(cur, amt);
+      break;
+    }
+
+    case 'percent': {
+      /* The whole reason this is a type and not a Number with a label: the
+         schema states the scale, so what the visitor reads and what the API
+         stores stop being the same guess made twice. */
+      input = el('div', 'fb-pct');
+      const amt = el('input', 'fb-input', { id, type: 'number', name: f.key,
+        step: f.step || 0.01, inputmode: 'decimal', required: !!rules.required,
+        min: f.min != null ? f.min : 0, max: f.max != null ? f.max : 100 });
+      if (f.value != null) amt.value = f.value;
+      const sign = el('span', 'fb-pct__sign');
+      sign.textContent = '%';
+      const stored = el('span', 'fb-pct__stored');
+      const paint = () => {
+        const typed = Number(amt.value);
+        stored.textContent = amt.value === '' || !Number.isFinite(typed)
+          ? '\u2192 \u2014'
+          : `\u2192 ${Math.round((typed / pctDiv(f)) * 1e6) / 1e6}`;
+      };
+      amt.addEventListener('input', paint);
+      input.append(amt, sign, stored);
+      paint();
       break;
     }
 
@@ -1590,6 +1631,11 @@ function readValue(form, f) {
       const picked = node.parentElement.querySelector('[aria-selected="true"]');
       return node.value ? { id: node.value, label: picked ? picked.textContent : '' } : null;
     }
+    case 'percent': {
+      const typed = Number(node.value);
+      if (node.value === '' || !Number.isFinite(typed)) return null;
+      return Math.round((typed / pctDiv(f)) * 1e6) / 1e6;
+    }
     case 'number':
     case 'range':
     case 'rating':
@@ -1617,7 +1663,7 @@ const OPERATORS = {
 function operatorsFor(type) {
   if (['select', 'radio'].includes(type)) return ['equals', 'notEquals', 'isSet'];
   if (['toggle'].includes(type)) return ['equals'];
-  if (['number', 'currency', 'range', 'rating'].includes(type)) return ['equals', 'gt', 'lt', 'isSet'];
+  if (['number', 'currency', 'range', 'rating', 'percent'].includes(type)) return ['equals', 'gt', 'lt', 'isSet'];
   if (['multiselect', 'checkbox'].includes(type)) return ['anyOf', 'isSet'];
   return ['equals', 'notEquals', 'isSet'];
 }
@@ -2197,6 +2243,13 @@ export function initFormBuilder() {
     if (section) f.section = section;
     if (help && HELP[active.type]) f.help = HELP[active.type];
     if (cond && cond.field) f.showIf = { ...cond };
+    /* A computed field is only as good as the fields it can see: if this form
+       already carries a rate, the sample expression spends it rather than
+       pretending the discount is not there. */
+    if (active.type === 'computed') {
+      const pct = schema.fields.find((x) => x.type === 'percent');
+      if (pct) f.expr = `sum(qty * price) * (1 - ${baseKey(pct.key)})`;
+    }
     if (searchable && FILTER_KIND[active.type]) f.searchable = true;
     if (Object.keys(rules).length) f.rules = { ...rules };
     schema.fields.push(f);

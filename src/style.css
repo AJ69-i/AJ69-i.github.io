@@ -801,3 +801,14 @@ strong { font-weight: 600; color: var(--text); }
 .fb-period__cell { padding: 0.5rem 0.4rem; background: none; border: 0; border-radius: 7px; font-family: var(--font-body); font-size: 0.8rem; color: var(--muted); cursor: pointer; transition: background .2s var(--ease), color .2s var(--ease); }
 .fb-period__cell:hover { background: rgba(243,240,234,0.07); color: var(--text); }
 .fb-period__cell.is-on { background: var(--accent); color: #0a0a0b; font-weight: 600; }
+
+/* ---------- percentage: a rate that says which scale it is stored on ---------- */
+.mk-unit { font-size: 0.8rem; color: var(--muted-2); margin-left: auto; }
+.mk-scale { display: inline-flex; border: 1px solid var(--mk-line); border-radius: 100px; overflow: hidden; width: fit-content; }
+.mk-scale__seg { font-size: 0.66rem; font-weight: 600; letter-spacing: 0.04em; color: var(--muted-2); padding: 0.3rem 0.6rem; }
+.mk-scale__seg.is-on { background: var(--accent); color: #0a0a0b; }
+
+.fb-pct { display: flex; align-items: center; gap: 0.55rem; }
+.fb-pct .fb-input { flex: 1 1 auto; min-width: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.fb-pct__sign { font-size: 0.85rem; color: var(--muted-2); flex-shrink: 0; }
+.fb-pct__stored { flex-shrink: 0; font-size: 0.72rem; color: var(--accent); font-variant-numeric: tabular-nums; padding: 0.24rem 0.5rem; border: 1px solid var(--line-soft); border-radius: 6px; background: rgba(233,184,114,0.06); }
