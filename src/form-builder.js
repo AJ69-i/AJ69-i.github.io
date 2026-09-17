@@ -239,7 +239,11 @@ const MOCKS = {
   time:     () => `<div class="mk-box">${mkIcon(I_CLOCK)}${clockBars()}<em class="mk-mer">AM</em><span class="mk-chev"></span></div>
                    <div class="mk-panel">${timeStrip()}</div>`,
   'datetime-local': () => `<div class="mk-box">${mkIcon(I_DT)}${bar('26%')}<span class="mk-pip"></span>${clockBars()}<em class="mk-mer">AM</em></div>${calendar(timeStrip(true))}`,
-  file:     () => `<div class="mk-drop">${mkIcon('<path d="M10 14V5m0 0L6.5 8.5M10 5l3.5 3.5M4 15h12"/>')}<span class="mk-ph">Drop a file, or browse</span></div>`,
+  file:     () => `<div class="mk-drop">${mkIcon('<path d="M10 14V5m0 0L6.5 8.5M10 5l3.5 3.5M4 15h12"/>')}
+                     <span class="mk-stack mk-stack--mid">${bar('128px')}${bar('76px')}</span></div>
+                   <div class="mk-file"><i class="mk-page"></i>
+                     <span class="mk-stack">${bar('104px')}${bar('46px')}</span>
+                     <i class="mk-x mk-x--mute"></i></div>`,
 
   tel:      () => `<div class="mk-box"><span class="mk-pill">+20 <i class="mk-caret"></i></span>${bar('40%')}</div>`,
   currency: () => `<div class="mk-box"><span class="mk-pill">EGP <i class="mk-caret"></i></span>${bar('30%')}</div>`,
