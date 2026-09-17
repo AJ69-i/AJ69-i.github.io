@@ -571,6 +571,91 @@ function recompute(form, fields) {
   });
 }
 
+/* ---------- a listbox, because the native one is not ours to design ----------
+   A <select>'s popup is drawn by the operating system: its own font, its own
+   highlight colour, its own metrics. Nothing in a design system reaches it.
+   So this is a real combobox — button, listbox, hidden input for the value —
+   with the keyboard behaviour people expect from the native one. */
+function dropdown({ options, value, name, id, label, small, required, onChange }) {
+  const wrap = el('div', 'fb-select' + (small ? ' fb-select--sm' : ''));
+  const hidden = el('input', null, { type: 'hidden', name, required: !!required });
+  const btn = el('button', 'fb-select__btn', {
+    type: 'button', id, role: 'combobox', 'aria-haspopup': 'listbox',
+    'aria-expanded': 'false', 'aria-label': label || name,
+  });
+  const text = el('span', 'fb-select__value');
+  const list = el('ul', 'fb-select__list', { role: 'listbox', 'data-lenis-prevent': true });
+  list.hidden = true;
+  btn.append(text, el('i', 'fb-select__chev'));
+
+  const items = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
+  let index = Math.max(0, items.findIndex((o) => o.value === value));
+
+  const paint = () => {
+    const chosen = items[index];
+    hidden.value = chosen ? chosen.value : '';
+    text.textContent = chosen ? chosen.label : '';
+    list.querySelectorAll('li').forEach((li, i) => {
+      li.setAttribute('aria-selected', String(i === index));
+      li.classList.toggle('is-on', i === index);
+    });
+  };
+
+  const close = () => {
+    list.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+  };
+  const open = () => {
+    list.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+    const on = list.querySelector('.is-on');
+    if (on) on.scrollIntoView({ block: 'nearest' });
+  };
+  const choose = (i) => {
+    index = i;
+    paint();
+    close();
+    btn.focus();
+    hidden.dispatchEvent(new Event('input', { bubbles: true }));
+    if (onChange) onChange(items[i]);
+  };
+
+  items.forEach((o, i) => {
+    const li = el('li', 'fb-select__opt', { role: 'option', 'aria-selected': 'false' });
+    li.textContent = o.label;
+    li.addEventListener('mousedown', (e) => { e.preventDefault(); choose(i); });
+    list.appendChild(li);
+  });
+
+  btn.addEventListener('click', () => (list.hidden ? open() : close()));
+  btn.addEventListener('keydown', (e) => {
+    const openNow = !list.hidden;
+    if (e.key === 'Escape') { close(); return; }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNow ? choose(index) : open(); return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!openNow) { open(); return; }
+      index = (index + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      paint();
+      list.querySelector('.is-on').scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    if (e.key === 'Home') { e.preventDefault(); index = 0; paint(); return; }
+    if (e.key === 'End') { e.preventDefault(); index = items.length - 1; paint(); return; }
+    // type-ahead, the one native behaviour people miss when it is gone
+    if (e.key.length === 1 && /\S/.test(e.key)) {
+      const from = items.findIndex((o, i) => i > index && o.label.toLowerCase().startsWith(e.key.toLowerCase()));
+      const at = from > -1 ? from : items.findIndex((o) => o.label.toLowerCase().startsWith(e.key.toLowerCase()));
+      if (at > -1) { index = at; paint(); if (openNow) list.querySelector('.is-on').scrollIntoView({ block: 'nearest' }); }
+    }
+  });
+  btn.addEventListener('blur', () => setTimeout(close, 120));
+
+  wrap.append(btn, hidden, list);
+  paint();
+  return wrap;
+}
+
 /* ---------- the engine: one field config -> one DOM control ---------- */
 function buildField(f, idx) {
   const id = `fb-${f.key || idx}`;
@@ -587,13 +672,8 @@ function buildField(f, idx) {
   let input;
   switch (f.type) {
     case 'select':
-      input = el('select', 'fb-input', { id, name: f.key, required: !!rules.required });
-      (f.options || []).forEach((o) => {
-        const opt = el('option', null, { value: o });
-        opt.textContent = o;
-        if (o === f.value) opt.selected = true;
-        input.appendChild(opt);
-      });
+      input = dropdown({ options: f.options || [], value: f.value, name: f.key,
+                         id, label: f.label, required: !!rules.required });
       break;
 
     case 'checkbox':
@@ -626,11 +706,9 @@ function buildField(f, idx) {
 
     case 'tel': {
       input = el('div', 'fb-tel');
-      const dial = el('select', 'fb-tel__dial', { name: `${f.key}__dial`, 'aria-label': 'Dial code' });
-      (f.dials || [f.dial || '+20']).forEach((d) => {
-        const o = el('option', null, { value: d }); o.textContent = d;
-        if (d === f.dial) o.selected = true; dial.appendChild(o);
-      });
+      const dial = dropdown({ options: f.dials || [f.dial || '+20'], value: f.dial,
+                              name: `${f.key}__dial`, label: 'Dial code', small: true });
+      dial.classList.add('fb-select--tight');
       const num = el('input', 'fb-input', { id, type: 'tel', name: f.key, inputmode: 'tel',
         required: !!rules.required, placeholder: f.placeholder || '' });
       input.append(dial, num);
@@ -639,11 +717,9 @@ function buildField(f, idx) {
 
     case 'currency': {
       input = el('div', 'fb-money');
-      const cur = el('select', 'fb-money__cur', { name: `${f.key}__cur`, 'aria-label': 'Currency' });
-      (f.currencies || [f.currency || 'USD']).forEach((c) => {
-        const o = el('option', null, { value: c }); o.textContent = c;
-        if (c === f.currency) o.selected = true; cur.appendChild(o);
-      });
+      const cur = dropdown({ options: f.currencies || [f.currency || 'USD'], value: f.currency,
+                             name: `${f.key}__cur`, label: 'Currency', small: true });
+      cur.classList.add('fb-select--tight');
       const amt = el('input', 'fb-input', { id, type: 'number', name: f.key, step: '0.01', min: 0, required: !!rules.required });
       if (f.value != null) amt.value = f.value;
       input.append(cur, amt);
@@ -1167,7 +1243,7 @@ export function renderFilters(schema, mount, queryMount) {
         const picked = [...box.querySelectorAll('.fb-tag[aria-pressed="true"]')].map((b) => b.textContent);
         if (picked.length) q[f.key] = { anyOf: picked };
       }
-      if (kind === 'bool' && val('select')) q[f.key] = { equals: val('select') === 'yes' };
+      if (kind === 'bool' && val('input[type=hidden]')) q[f.key] = { equals: val('input[type=hidden]') === 'yes' };
     });
     if (queryMount) {
       queryMount.textContent = Object.keys(q).length
@@ -1212,9 +1288,9 @@ export function renderFilters(schema, mount, queryMount) {
         row.appendChild(b);
       });
     } else if (kind === 'bool') {
-      const sel = el('select', 'fb-input fb-input--sm', { 'aria-label': f.label });
-      [['', 'Any'], ['yes', 'Yes'], ['no', 'No']].forEach(([v, t]) => {
-        const o = el('option', null, { value: v }); o.textContent = t; sel.appendChild(o);
+      const sel = dropdown({
+        options: [{ value: '', label: 'Any' }, { value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }],
+        value: '', name: `${f.key}__bool`, label: f.label, small: true, onChange: readQuery,
       });
       row.appendChild(sel);
     }
