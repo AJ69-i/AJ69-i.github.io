@@ -815,3 +815,20 @@ strong { font-weight: 600; color: var(--text); }
 
 /* ---------- country: the one control whose answer writes other answers ---------- */
 .mk-drive { display: flex; align-items: center; gap: 0.4rem; padding-left: 0.6rem; }
+
+/* ---------- password strength: a rule that renders ---------- */
+.fb-pw { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.6rem; }
+.fb-pw .fb-input { flex: 1 0 100%; }
+.fb-pw__meter { display: flex; gap: 4px; flex: 0 0 auto; }
+.fb-pw__meter i { width: 26px; height: 4px; border-radius: 100px; background: rgba(243,240,234,0.10); transition: background .22s var(--ease); }
+.fb-pw__note { font-size: 0.72rem; color: var(--muted-2); }
+.fb-pw[data-score="0"] .fb-pw__meter i.is-on,
+.fb-pw[data-score="1"] .fb-pw__meter i.is-on { background: #e88b7d; }
+.fb-pw[data-score="0"] .fb-pw__note,
+.fb-pw[data-score="1"] .fb-pw__note { color: #e88b7d; }
+.fb-pw[data-score="2"] .fb-pw__meter i.is-on,
+.fb-pw[data-score="3"] .fb-pw__meter i.is-on { background: var(--accent-2); }
+.fb-pw[data-score="2"] .fb-pw__note,
+.fb-pw[data-score="3"] .fb-pw__note { color: var(--accent-2); }
+.fb-pw[data-score="4"] .fb-pw__meter i.is-on { background: var(--accent); }
+.fb-pw[data-score="4"] .fb-pw__note { color: var(--accent); }

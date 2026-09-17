@@ -196,7 +196,7 @@ const RULES = {
   email:     [rule('required', 'required', true), rule('pattern', PATTERNS.email.label, PATTERNS.email.value)],
   url:       [rule('required', 'required', true), rule('pattern', PATTERNS.url.label, PATTERNS.url.value)],
   tel:       [rule('required', 'required', true), rule('pattern', PATTERNS.tel.label, PATTERNS.tel.value)],
-  password:  [rule('required', 'required', true), rule('minLength', 'min length', 8), rule('pattern', PATTERNS.password.label, PATTERNS.password.value)],
+  password:  [rule('required', 'required', true), rule('minLength', 'min length', 8), rule('pattern', PATTERNS.password.label, PATTERNS.password.value), rule('strength', 'strong password', 'strong')],
   number:    [rule('required', 'required', true), rule('min', 'min', 1), rule('max', 'max', 500)],
   currency:  [rule('required', 'required', true), rule('min', 'min', 0), rule('max', 'max', 1000000)],
   percent:   [rule('required', 'required', true), rule('max', 'cap at 25 %', 25)],
@@ -943,6 +943,25 @@ function timePicker({ name, id, label, required }) {
 }
 
 /* ---------- the engine: one field config -> one DOM control ---------- */
+/* ---------- one definition of "strong" ----------
+   Not an entropy estimate and not a dictionary. Four things, counted once,
+   so the bar the visitor watches and the check that blocks the submit can
+   never tell them different stories. */
+const PW_LABELS = ['too easy', 'too easy', 'weak', 'almost there', 'strong'];
+
+function strength(value) {
+  const v = String(value == null ? '' : value);
+  const missing = [];
+  if (v.length < 10) missing.push('10 characters');
+  if (!/[a-z]/.test(v) || !/[A-Z]/.test(v)) missing.push('mixed case');
+  if (!/\d/.test(v)) missing.push('a digit');
+  if (!/[^A-Za-z0-9]/.test(v)) missing.push('a symbol');
+  const score = 4 - missing.length;
+  return { score, label: PW_LABELS[score], missing };
+}
+
+const listOf = (a) => (a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
+
 function buildField(f, idx) {
   const id = `fb-${f.key || idx}`;
   const rules = f.rules || {};
@@ -988,6 +1007,33 @@ function buildField(f, idx) {
       box.checked = !!f.value;
       const track = el('span', 'fb-switch__track');
       input.append(box, track);
+      break;
+    }
+
+    case 'password': {
+      const box = el('input', 'fb-input', { id, name: f.key, type: 'password',
+        required: !!rules.required, placeholder: f.placeholder || '',
+        autocomplete: 'new-password' });
+      if (!rules.strength) { input = box; break; }
+
+      /* A rule that earns its keep by changing what gets rendered. A strength
+         requirement the visitor only meets the bar of at submit time is a rule
+         you failed them with, not one you told them about. */
+      input = el('div', 'fb-pw');
+      const meter = el('div', 'fb-pw__meter', { 'aria-hidden': 'true' });
+      for (let i = 0; i < 4; i++) meter.appendChild(el('i'));
+      const note = el('span', 'fb-pw__note', { 'aria-live': 'polite' });
+      const paint = () => {
+        const s = strength(box.value);
+        input.dataset.score = box.value ? String(s.score) : '';
+        meter.querySelectorAll('i').forEach((seg, i) => seg.classList.toggle('is-on', !!box.value && i < s.score));
+        note.textContent = !box.value ? ''
+          : s.score === 4 ? s.label
+          : `${s.label} \u2014 needs ${listOf(s.missing.slice(0, 2))}`;
+      };
+      box.addEventListener('input', paint);
+      input.append(box, meter, note);
+      paint();
       break;
     }
 
@@ -1629,10 +1675,14 @@ function buildField(f, idx) {
   const err = el('p', 'fb-error', { 'aria-live': 'polite' });
   wrap.appendChild(err);
 
-  if (input.tagName === 'INPUT' || input.tagName === 'TEXTAREA' || input.tagName === 'SELECT') {
-    const show = () => { err.textContent = input.validity.valid ? '' : (input.validationMessage || 'Invalid'); };
-    input.addEventListener('invalid', (e) => { e.preventDefault(); show(); wrap.classList.add('is-invalid'); });
-    input.addEventListener('input', () => { show(); wrap.classList.toggle('is-invalid', !input.validity.valid); });
+  /* The message belongs to whichever single native control carries the
+     constraints. Asking the wrapper meant a phone number, an amount, a rate
+     and a password with a meter all silently lost their inline error. */
+  const native = ['INPUT', 'TEXTAREA', 'SELECT'].includes(input.tagName) ? input : target;
+  if (native) {
+    const show = () => { err.textContent = native.validity.valid ? '' : (native.validationMessage || 'Invalid'); };
+    native.addEventListener('invalid', (e) => { e.preventDefault(); show(); wrap.classList.add('is-invalid'); });
+    native.addEventListener('input', () => { show(); wrap.classList.toggle('is-invalid', !native.validity.valid); });
   }
   return wrap;
 }
@@ -1875,6 +1925,11 @@ function customErrors(form, fields) {
         return false;
       });
       if (dupe) out.push([f.key, `Two rows share the same ${r.unique}.`]);
+    }
+
+    if (r.strength && f.type === 'password' && v) {
+      const s = strength(v);
+      if (s.score < 4) out.push([f.key, `Still needs ${listOf(s.missing)}.`]);
     }
 
     if (r.requiredTrue && v !== true)
