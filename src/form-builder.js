@@ -213,8 +213,8 @@ const timeStrip = (flat = false) => `
 const dotRow = (n) => Array.from({ length: n }, (_, i) =>
   `<i class="mk-dot" style="--t:${(i / (n - 1)).toFixed(3)}"></i>`).join('');
 
-const star = (on) =>
-  `<span class="mk-star${on ? ' is-on' : ''}"><svg viewBox="0 0 20 20" width="16" height="16"
+const star = (on, t) =>
+  `<span class="mk-star${on ? ' is-on' : ''}" style="--t:${t}"><svg viewBox="0 0 20 20" width="18" height="18"
      fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.3"
      stroke-linejoin="round" aria-hidden="true"><path d="m10 3.2 2.1 4.3 4.7.7-3.4 3.3.8 4.7L10 14l-4.2 2.2.8-4.7-3.4-3.3 4.7-.7z"/></svg></span>`;
 
@@ -244,7 +244,10 @@ const MOCKS = {
   tel:      () => `<div class="mk-box"><span class="mk-pill">+20 <i class="mk-caret"></i></span>${bar('40%')}</div>`,
   currency: () => `<div class="mk-box"><span class="mk-pill">EGP <i class="mk-caret"></i></span>${bar('30%')}</div>`,
   range:    () => `<div class="mk-track"><span class="mk-fill"></span><span class="mk-knob"></span></div>`,
-  rating:   () => `<div class="mk-stars">${[1, 1, 1, 1, 0].map((on) => star(on)).join('')}</div>`,
+  rating:   () => { const filled = [1, 1, 1, 1, 0];
+                    return `<div class="mk-stars">${filled
+                      .map((on, i) => star(on, (i / (filled.length - 1)).toFixed(3)))
+                      .join('')}</div>`; },
 
   multiselect: () => `<div class="mk-box">${bar('26%')}<span class="mk-chev"></span></div>
                       <div class="mk-tags"><span class="mk-tag is-on">${bar('34px')}<i class="mk-x"></i></span>

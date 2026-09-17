@@ -454,8 +454,9 @@ textarea.fb-input { resize: vertical; min-height: 78px; }
 .mk-fill { position: absolute; inset: 0 40% 0 0; border-radius: 100px; background: linear-gradient(90deg, rgba(233,184,114,0.85), rgba(233,184,114,0.4)); }
 .mk-knob { position: absolute; top: 50%; left: 60%; width: 15px; height: 15px; margin: -7.5px 0 0 -7.5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px rgba(233,184,114,0.14); }
 
-.mk-stars { display: flex; gap: 0.3rem; padding-top: 0.15rem; }
-.mk-star { color: var(--muted-2); display: grid; place-items: center; }
+.mk-stars { display: flex; gap: 0.35rem; padding-top: 0.15rem; }
+.mk-star { display: grid; place-items: center; color: rgba(243,240,234,0.26);
+           opacity: calc(1 - 0.42 * var(--t, 0)); }
 .mk-star.is-on { color: var(--accent); }
 
 .mk-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; }
