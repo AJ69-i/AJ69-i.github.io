@@ -833,6 +833,29 @@ function recompute(form, fields) {
   });
 }
 
+/* A panel that clips its overflow — for the rounded corner, or because the
+   list inside it scrolls — will also clip anything a control opens near its
+   bottom edge, and the visitor sees a menu with its legs cut off. Unclipping
+   the panel is the wrong trade, so the popover measures instead: it asks the
+   nearest clipping ancestor how much room is left and opens upwards when
+   there is not enough below and there is enough above. */
+function placePopover(anchor, pop) {
+  pop.classList.remove('is-up');
+  const a = anchor.getBoundingClientRect();
+  const h = pop.offsetHeight;
+  if (!h) return;
+
+  let bound = window.innerHeight;
+  for (let node = anchor.parentElement; node; node = node.parentElement) {
+    const cs = getComputedStyle(node);
+    if (/hidden|clip|auto|scroll/.test(cs.overflowY + cs.overflow)) {
+      bound = Math.min(bound, node.getBoundingClientRect().bottom);
+      break;
+    }
+  }
+  if (a.bottom + 8 + h > bound && a.top - 8 >= h) pop.classList.add('is-up');
+}
+
 /* Every popover owes the visitor the same two exits: Escape from anywhere
    inside it, and a click somewhere else. Wiring that per component is how
    one of them ends up missing it. */
@@ -887,6 +910,7 @@ function dropdown({ options, value, name, id, label, small, required, onChange }
   const open = () => {
     list.hidden = false;
     btn.setAttribute('aria-expanded', 'true');
+    placePopover(btn, list);
     const on = list.querySelector('.is-on');
     if (on) on.scrollIntoView({ block: 'nearest' });
   };
@@ -1043,7 +1067,7 @@ function datePicker({ name, id, label, withTime, required }) {
   };
 
   const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
-  const open = () => { pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); paint(); };
+  const open = () => { pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); paint(); placePopover(btn, pop); };
 
   FORM.repaint.push(() => {
     prev.setAttribute('aria-label', t('prevMonth'));
@@ -1124,6 +1148,7 @@ function timePicker({ name, id, label, required }) {
   btn.addEventListener('click', () => {
     pop.hidden = !pop.hidden;
     btn.setAttribute('aria-expanded', String(!pop.hidden));
+    if (!pop.hidden) placePopover(btn, pop);
   });
   dismissable(wrap, close, () => !pop.hidden);
 
@@ -1564,6 +1589,7 @@ function buildField(f, idx) {
           list.appendChild(li);
         });
         list.hidden = !hits.length;
+        if (!list.hidden) placePopover(search, list);
         search.setAttribute('aria-expanded', String(!!hits.length));
       };
 
@@ -1932,7 +1958,7 @@ function buildField(f, idx) {
       btn.addEventListener('click', () => {
         pop.hidden = !pop.hidden;
         btn.setAttribute('aria-expanded', String(!pop.hidden));
-        if (!pop.hidden) paint();
+        if (!pop.hidden) { paint(); placePopover(btn, pop); }
       });
       dismissable(input, close, () => !pop.hidden);
       input.append(btn, hidden, pop);

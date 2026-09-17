@@ -884,3 +884,8 @@ strong { font-weight: 600; color: var(--text); }
 .fb-form[dir="rtl"] input[type="email"],
 .fb-form[dir="rtl"] input[type="url"] { direction: ltr; }
 .fb-form[dir="rtl"] input[type="number"] { text-align: left; }
+
+/* A popover that would be cut off by the panel edge opens upwards instead. */
+.fb-select__list.is-up,
+.fb-lookup__list.is-up { top: auto; bottom: calc(100% + 6px); }
+.fb-date__pop.is-up { top: auto; bottom: calc(100% + 6px); }
