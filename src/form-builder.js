@@ -875,10 +875,11 @@ function buildField(f, idx) {
       input = el('div', 'fb-choices', { id, role: 'group' });
       const chosen = Array.isArray(f.value) ? f.value : [f.value];
       (f.options || []).forEach((o) => {
-        const lab = el('label', 'fb-choice');
+        const lab = el('label', `fb-choice fb-choice--${f.type}`);
         const box = el('input', null, { type: f.type, name: f.key, value: o });
         box.checked = chosen.includes(o);
-        lab.append(box, document.createTextNode(o));
+        const mark = el('i', 'fb-choice__mark');
+        lab.append(box, mark, document.createTextNode(o));
         input.appendChild(lab);
       });
       break;
@@ -1038,13 +1039,46 @@ function buildField(f, idx) {
     }
 
     case 'color': {
+      /* The OS colour panel is a whole application and none of it is ours.
+         A brand colour is picked from a short list far more often than it is
+         dialled in, so: swatches, plus a hex field for the exact one. */
+      const SWATCHES = ['#e9b872', '#c8924a', '#7fb3a0', '#6f8fd6', '#b57fd6',
+                        '#d67f8f', '#4f5a6b', '#f3f0ea', '#0a0a0b'];
       input = el('div', 'fb-color');
-      const c = el('input', 'fb-color__input', { id, type: 'color', name: f.key });
-      c.value = f.value || '#e9b872';
-      const hex = el('span', 'fb-color__hex');
-      hex.textContent = c.value;
-      c.addEventListener('input', () => { hex.textContent = c.value; });
-      input.append(c, hex);
+      const hidden = el('input', null, { type: 'hidden', name: f.key });
+      const chips = el('div', 'fb-color__row', { role: 'radiogroup', 'aria-label': f.label || 'Colour' });
+      const hex = el('input', 'fb-input fb-input--sm fb-color__hex', {
+        id, type: 'text', maxlength: 7, spellcheck: 'false', 'aria-label': 'Hex value',
+      });
+      const bead = el('span', 'fb-color__bead');
+
+      const apply = (v, fromHex) => {
+        hidden.value = v;
+        bead.style.background = v;
+        if (!fromHex) hex.value = v;
+        chips.querySelectorAll('button').forEach((b) =>
+          b.setAttribute('aria-checked', String(b.dataset.v.toLowerCase() === v.toLowerCase())));
+        hidden.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+
+      SWATCHES.forEach((v) => {
+        const b = el('button', 'fb-color__chip', { type: 'button', role: 'radio', 'aria-checked': 'false', 'aria-label': v });
+        b.dataset.v = v;
+        b.style.background = v;
+        b.addEventListener('click', () => apply(v));
+        chips.appendChild(b);
+      });
+
+      hex.addEventListener('input', () => {
+        let v = hex.value.trim();
+        if (v && v[0] !== '#') v = `#${v}`;
+        if (/^#[0-9a-fA-F]{6}$/.test(v)) apply(v, true);
+      });
+
+      const field = el('div', 'fb-color__field');
+      field.append(bead, hex);
+      input.append(chips, field, hidden);   // the value has to be in the form, not just in scope
+      apply(f.value || SWATCHES[0]);
       break;
     }
 
@@ -1245,6 +1279,58 @@ function buildField(f, idx) {
       input = timePicker({ name: f.key, id, label: f.label, required: !!rules.required });
       break;
 
+    case 'file': {
+      input = el('div', 'fb-file');
+      const real = el('input', 'fb-file__real', { id, type: 'file', name: f.key,
+        required: !!rules.required, accept: rules.accept || null });
+      const zone = el('button', 'fb-file__zone', { type: 'button' });
+      const zoneText = el('span', 'fb-file__hint');
+      zoneText.textContent = rules.accept ? `Drop a ${rules.accept} file, or browse` : 'Drop a file, or browse';
+      zone.append(el('i', 'fb-file__arrow'), zoneText);
+      const chosen = el('div', 'fb-file__chosen');
+      chosen.hidden = true;
+
+      const show = () => {
+        const file = real.files && real.files[0];
+        chosen.innerHTML = '';
+        chosen.hidden = !file;
+        if (!file) return;
+        const page = el('i', 'fb-file__page');
+        const meta = el('span', 'fb-file__meta');
+        const nameEl = el('b'); nameEl.textContent = file.name;
+        const sizeEl = el('small');
+        sizeEl.textContent = file.size > 1048576
+          ? `${(file.size / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+        meta.append(nameEl, sizeEl);
+        const drop = el('button', 'fb-file__drop', { type: 'button', 'aria-label': 'Remove file' });
+        drop.textContent = '×';
+        drop.addEventListener('click', () => {
+          real.value = '';
+          show();
+          real.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        chosen.append(page, meta, drop);
+      };
+
+      zone.addEventListener('click', () => real.click());
+      real.addEventListener('change', () => { show(); real.dispatchEvent(new Event('input', { bubbles: true })); });
+      ['dragenter', 'dragover'].forEach((ev) => zone.addEventListener(ev, (e) => {
+        e.preventDefault(); zone.classList.add('is-over');
+      }));
+      ['dragleave', 'drop'].forEach((ev) => zone.addEventListener(ev, (e) => {
+        e.preventDefault(); zone.classList.remove('is-over');
+      }));
+      zone.addEventListener('drop', (e) => {
+        if (!e.dataTransfer.files.length) return;
+        real.files = e.dataTransfer.files;
+        show();
+        real.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+
+      input.append(real, zone, chosen);
+      break;
+    }
+
     case 'computed': {
       input = el('div', 'fb-computed');
       input.dataset.computed = f.key;
@@ -1269,7 +1355,7 @@ function buildField(f, idx) {
      customErrors instead — pushing minLength onto one cell of a six-box code
      is both wrong and, since it exceeds that cell's maxlength, fatal. */
   const COMPOSITE = ['otp', 'tree', 'lookup', 'multiselect', 'signature', 'richtext', 'lineitems',
-                     'rating', 'select', 'date', 'time', 'datetime-local'];
+                     'rating', 'select', 'date', 'time', 'datetime-local', 'color'];
   const target = COMPOSITE.includes(f.type) ? null
                : input.matches('input, select, textarea') ? input
                : input.querySelector('input:not([type=hidden]), select, textarea');
