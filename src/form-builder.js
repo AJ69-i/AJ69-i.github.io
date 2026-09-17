@@ -183,6 +183,10 @@ export const CONTROLS = [
     hint: 'Scanner-first: the field takes a scan or a typed code and normalises both.',
     sample: { key: 'sku', label: 'SKU / Barcode', type: 'barcode', placeholder: 'Scan or type' } },
 
+  { type: 'masked', label: 'Masked', group: 'Text', icon: svg('<rect x="2.5" y="6" width="4" height="8" rx="1"/><path d="M7.8 10h1.4"/><rect x="10.5" y="6" width="4" height="8" rx="1"/><path d="M15.8 10h1.7"/>'),
+    hint: 'A format that shapes what you type instead of rejecting it afterwards. The separators are put in for you, and a character that does not belong in the next slot never lands.',
+    sample: { key: 'taxid', label: 'Tax registration no.', type: 'masked', mask: '000-000-000' } },
+
   { type: 'tree', label: 'Tree Select', group: 'Business', icon: svg('<rect x="3" y="3" width="5" height="4" rx="1"/><rect x="12" y="8" width="5" height="4" rx="1"/><rect x="12" y="14" width="5" height="3.5" rx="1"/><path d="M5.5 7v7.5h6.5M5.5 10h6.5"/>'),
     hint: 'One node out of a hierarchy — categories, cost centres, an org chart.',
     sample: { key: 'category', label: 'Category', type: 'tree', ref: 'categories' } },
@@ -237,6 +241,7 @@ const RULES = {
   color:     [],
   otp:       [rule('required', 'required', true), rule('minLength', 'full length', 6)],
   barcode:   [rule('required', 'required', true), rule('pattern', 'alphanumeric', '^[A-Za-z0-9-]{4,}$')],
+  masked:    [rule('required', 'required', true), rule('complete', 'every slot filled', true)],
   tree:      [rule('required', 'required', true), rule('leafOnly', 'leaf nodes only', true)],
   lookup:    [rule('required', 'required', true)],
   lineitems: [rule('minRows', 'min rows', 2), rule('maxRows', 'max rows', 5), rule('unique', 'no duplicate rows', 'desc')],
@@ -260,7 +265,7 @@ const NO_RULES = {
 const FILTER_KIND = {
   text: 'contains', textarea: 'contains', email: 'contains', url: 'contains',
   tel: 'contains', richtext: 'contains', lookup: 'contains', barcode: 'contains', tree: 'contains',
-  country: 'contains',
+  country: 'contains', masked: 'contains',
   number: 'range', currency: 'range', range: 'range', rating: 'range', percent: 'range', quantity: 'range',
   date: 'dateRange', 'datetime-local': 'dateRange', time: 'dateRange', period: 'dateRange',
   duration: 'range',
@@ -303,6 +308,7 @@ const HELP = {
   color: 'Used on the portal header and on outgoing email.',
   otp: 'Six digits, valid for ten minutes.',
   barcode: 'Scan it, or type the code printed under the bars.',
+  masked: 'Exactly as printed on the certificate — the dashes are added for you.',
   tree: 'Pick the most specific node that applies.',
   lookup: 'Start typing a name or a customer code.',
   lineitems: 'One row per item — the total updates as you type.',
@@ -510,6 +516,8 @@ const MOCKS = {
                      `<span class="mk-otp__cell${i < 3 ? ' is-on' : ''}" style="--t:${(i / 5).toFixed(3)}">${
                        i < 3 ? '<i class="mk-dot"></i>' : ''}</span>`).join('')}</div>`,
 
+  masked:   () => `<div class="mk-box">${bar('30px')}<span class="mk-sep">-</span>${bar('30px')}<span class="mk-sep">-</span>${bar('30px')}</div>
+                   <div class="mk-mask">000-000-000</div>`,
   barcode:  () => `<div class="mk-box">${mkIcon('<path d="M3 4v12M6 4v12M8.5 4v12M11.5 4v9M14 4v12M17 4v12"/>')}${bar('34%')}</div>
                    <div class="mk-bars">${[3, 1, 2, 1, 1, 3, 1, 2, 2, 1, 3, 1, 1, 2, 1, 3, 2, 1, 1, 2]
                      .map((w, i) => `<i style="--w:${w}px;--t:${(i / 19).toFixed(3)}"></i>`).join('')}</div>`,
@@ -989,6 +997,35 @@ function strength(value) {
 
 const listOf = (a) => (a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
 
+/* ---------- a mask, which is not a pattern ----------
+   A pattern waits until the visitor has finished and then says no. A mask
+   shapes the value as it is typed: the separators are put in for them and a
+   character that does not belong in the next slot simply never lands. 0 takes
+   a digit, A a letter, * either; everything else in the mask is a literal. */
+const MASK_TOKEN = { '0': /\d/, A: /[A-Za-z]/, '*': /[A-Za-z0-9]/ };
+
+const maskSlots = (mask) => [...String(mask)].filter((c) => MASK_TOKEN[c]).length;
+const maskHint = (mask) => [...String(mask)].map((c) => (MASK_TOKEN[c] ? '_' : c)).join('');
+
+function applyMask(mask, value) {
+  const slots = [...String(mask)].map((c) => MASK_TOKEN[c] || null);
+  const types = slots.filter(Boolean);
+
+  /* Each character is offered to the next unfilled slot. One that does not fit
+     is dropped, which is also how a visitor pasting an already-formatted value
+     gets the separators skipped rather than counted. */
+  const chars = [];
+  for (const c of String(value == null ? '' : value)) {
+    if (chars.length >= types.length) break;
+    if (types[chars.length].test(c)) chars.push(c);
+  }
+
+  let display = '';
+  let k = 0;
+  for (let i = 0; i < slots.length && k < chars.length; i++) display += slots[i] ? chars[k++] : String(mask)[i];
+  return { display, raw: chars.join(''), full: chars.length === types.length };
+}
+
 function buildField(f, idx) {
   const id = `fb-${f.key || idx}`;
   const rules = f.rules || {};
@@ -1060,6 +1097,36 @@ function buildField(f, idx) {
       };
       box.addEventListener('input', paint);
       input.append(box, meter, note);
+      paint();
+      break;
+    }
+
+    case 'masked': {
+      const mask = f.mask || '000-000-000';
+      const slots = maskSlots(mask);
+      input = el('div', 'fb-mask');
+      const box = el('input', 'fb-input', { id, type: 'text', name: f.key,
+        required: !!rules.required, placeholder: f.placeholder || maskHint(mask),
+        autocomplete: 'off', spellcheck: 'false',
+        inputmode: [...mask].every((c) => !MASK_TOKEN[c] || c === '0') ? 'numeric' : 'text' });
+      const raw = el('input', null, { type: 'hidden', name: `${f.key}__raw` });
+      const note = el('span', 'fb-mask__note');
+      const paint = () => {
+        const at = box.selectionStart;
+        const r = applyMask(mask, box.value);
+        if (box.value !== r.display) {
+          const delta = r.display.length - box.value.length;
+          box.value = r.display;
+          const put = Math.max(0, Math.min(r.display.length, (at || 0) + delta));
+          try { box.setSelectionRange(put, put); } catch { /* not a caret-bearing input */ }
+        }
+        raw.value = r.raw;
+        input.dataset.full = String(r.full);
+        note.textContent = r.raw ? `${mask} · ${r.raw.length}/${slots}` : mask;
+      };
+      box.addEventListener('input', paint);
+      if (f.value != null) { box.value = f.value; }
+      input.append(box, raw, note);
       paint();
       break;
     }
@@ -1786,6 +1853,10 @@ function readValue(form, f) {
       const row = COUNTRIES.find((c) => c.code === node.value);
       return row ? { code: row.code, name: row.name } : null;
     }
+    case 'masked': {
+      const r = applyMask(f.mask || '', node.value);
+      return r.raw ? { value: r.raw, display: r.display } : null;
+    }
     case 'computed':
       return Number(node.dataset.value || 0);
     case 'daterange': {
@@ -1852,7 +1923,7 @@ function operatorsFor(type) {
    identifies the answer, not against the whole record. */
 function norm(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return v;
-  for (const k of ['code', 'id', 'amount', 'base', 'minutes', 'number', 'from']) if (k in v) return v[k];
+  for (const k of ['code', 'id', 'amount', 'base', 'minutes', 'number', 'from', 'value']) if (k in v) return v[k];
   return v;
 }
 
@@ -2016,6 +2087,9 @@ function customErrors(form, fields) {
       else if (v && r.min != null && v.base < r.min) out.push([f.key, `At least ${r.min} ${v.baseUom}.`]);
       else if (v && r.max != null && v.base > r.max) out.push([f.key, `No more than ${r.max} ${v.baseUom}.`]);
     }
+
+    if (r.complete && f.type === 'masked' && v && v.value.length < maskSlots(f.mask || ''))
+      out.push([f.key, `Needs all ${maskSlots(f.mask || '')} characters — ${f.mask}.`]);
 
     if (r.requiredTrue && v !== true)
       out.push([f.key, 'This has to be switched on to continue.']);

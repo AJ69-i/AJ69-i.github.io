@@ -846,3 +846,12 @@ strong { font-weight: 600; color: var(--text); }
 .fb-qty__unit:hover { background: var(--accent); color: #0a0a0b; }
 
 .fb-items__row--head > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- masked: the format is part of the control, not a check on it ---------- */
+.mk-sep { font-size: 0.8rem; color: var(--muted-2); }
+.mk-mask { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.72rem; letter-spacing: 0.06em; color: var(--muted-2); background: rgba(243,240,234,0.03); border: 1px solid var(--line-soft); border-radius: 6px; padding: 0.3rem 0.55rem; width: fit-content; }
+
+.fb-mask { display: flex; flex-direction: column; gap: 0.35rem; }
+.fb-mask .fb-input { font-variant-numeric: tabular-nums; letter-spacing: 0.06em; }
+.fb-mask__note { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.7rem; letter-spacing: 0.04em; color: var(--muted-2); }
+.fb-mask[data-full="true"] .fb-mask__note { color: var(--accent); }
