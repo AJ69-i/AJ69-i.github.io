@@ -275,10 +275,11 @@
         <h2 class="section-title section-title--lg" data-split-lines>Don't take my word for it.</h2>
         <p class="demo__note" data-reveal>
           The Form Builder above runs on a config, not on code. Here is that idea in miniature: pick a
-          control, set its width and the rules it should enforce, and watch both land in the schema and
-          take effect in the form below it. Each type offers only the rules that make sense for it — and
-          a type with nothing to validate says so. Nothing downstream knows about specific control types;
-          adding one is a single entry in an array.
+          control, set its width, the rules it enforces and the condition under which it exists at all,
+          and watch every one of those land in the schema and take effect below it. A field hidden by its
+          own condition is not merely invisible — it leaves the contract, so nothing asks it to validate
+          and nothing submits it. Each type offers only the rules that make sense for it, and a type with
+          nothing to validate says so. Adding a control is a single entry in an array.
         </p>
 
         <div class="fb" data-reveal>
@@ -304,6 +305,10 @@
                 <div class="fb__prop">
                   <span class="fb__prop-label">Options</span>
                   <div class="fb-rules" data-fb-opts role="group" aria-label="Field options"></div>
+                </div>
+                <div class="fb__prop">
+                  <span class="fb__prop-label">Visible&nbsp;when</span>
+                  <div class="fb-cond" data-fb-cond></div>
                 </div>
               </div>
 

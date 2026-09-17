@@ -1434,6 +1434,90 @@ function readValue(form, f) {
   }
 }
 
+/* ---------- conditional visibility ----------
+   The step from rendering a form to running one. A field states the
+   condition under which it exists, and when that condition is false the
+   field is not merely invisible — it is out of the contract: not validated,
+   not submitted. Anything less and you get a form that silently refuses to
+   submit because of a required field nobody can see. */
+const OPERATORS = {
+  equals:    { label: 'is', needsValue: true },
+  notEquals: { label: 'is not', needsValue: true },
+  anyOf:     { label: 'is any of', needsValue: true },
+  gt:        { label: 'is more than', needsValue: true },
+  lt:        { label: 'is less than', needsValue: true },
+  isSet:     { label: 'has any value', needsValue: false },
+};
+
+function operatorsFor(type) {
+  if (['select', 'radio'].includes(type)) return ['equals', 'notEquals', 'isSet'];
+  if (['toggle'].includes(type)) return ['equals'];
+  if (['number', 'currency', 'range', 'rating'].includes(type)) return ['equals', 'gt', 'lt', 'isSet'];
+  if (['multiselect', 'checkbox'].includes(type)) return ['anyOf', 'isSet'];
+  return ['equals', 'notEquals', 'isSet'];
+}
+
+function conditionMet(cond, values) {
+  if (!cond || !cond.field) return true;
+  if (!(cond.field in values)) return true;      // fail open: never hide because of a stale reference
+  const v = values[cond.field];
+  const want = cond.value;
+
+  switch (cond.op) {
+    case 'isSet':
+      return Array.isArray(v) ? v.length > 0 : v !== '' && v != null && v !== false;
+    case 'notEquals':
+      return String(v) !== String(want);
+    case 'anyOf':
+      return Array.isArray(v) && v.map(String).includes(String(want));
+    case 'gt':
+      return Number(v) > Number(want);
+    case 'lt':
+      return Number(v) < Number(want);
+    case 'equals':
+    default:
+      if (typeof v === 'boolean') return v === (want === true || want === 'true');
+      return String(v) === String(want);
+  }
+}
+
+/* The values every condition is judged against — read straight off the DOM,
+   so a condition can depend on something the visitor changed a moment ago. */
+function currentValues(form, fields) {
+  const out = {};
+  fields.forEach((f) => {
+    const wrap = form.querySelector(`.fb-field[data-field="${f.key}"]`);
+    if (wrap && wrap.hidden) return;             // a hidden field cannot drive another
+    try { out[f.key] = readValue(form, f); } catch { out[f.key] = null; }
+  });
+  return out;
+}
+
+function applyVisibility(form, fields) {
+  const values = currentValues(form, fields);
+  fields.forEach((f) => {
+    const wrap = form.querySelector(`.fb-field[data-field="${f.key}"]`);
+    if (!wrap) return;
+    const show = conditionMet(f.showIf, values);
+    if (wrap.hidden === !show) return;
+    wrap.hidden = !show;
+    wrap.classList.toggle('is-hidden', !show);
+
+    /* Hiding is not enough. A required input inside a display:none wrapper is
+       still validated — reportValidity() fails on a control it cannot even
+       show, and the form refuses to submit with no visible reason. Disabling
+       is the mechanism that actually takes a control out of validation and
+       out of the submitted data. */
+    wrap.querySelectorAll('input, select, textarea, button').forEach((n) => { n.disabled = !show; });
+
+    if (!show) {
+      wrap.classList.remove('is-invalid');
+      const err = wrap.querySelector('.fb-error');
+      if (err) err.textContent = '';
+    }
+  });
+}
+
 /* Rules the browser has no attribute for. Kept in one place so the field
    builder never grows a special case per type. */
 function customErrors(form, fields) {
@@ -1441,6 +1525,8 @@ function customErrors(form, fields) {
   const out = [];
 
   fields.forEach((f) => {
+    const wrap = form.querySelector(`.fb-field[data-field="${f.key}"]`);
+    if (wrap && wrap.hidden) return;             // not shown, not asked for
     const r = f.rules || {};
     const v = readValue(form, f);
     const empty = v == null || v === '' || (Array.isArray(v) && !v.length) ||
@@ -1636,9 +1722,12 @@ export function renderForm(schema, mount) {
   const out = el('pre', 'fb-output', { 'aria-live': 'polite' });
   form.append(actions, out);
 
-  // A computed field answers to the whole form, so it re-runs on any change.
-  form.addEventListener('input', () => recompute(form, fields));
-  recompute(form, fields);
+  // A computed field answers to the whole form, so it re-runs on any change —
+  // and so does every condition, because one answer can reveal the next question.
+  const refresh = () => { applyVisibility(form, fields); recompute(form, fields); };
+  form.addEventListener('input', refresh);
+  form.addEventListener('change', refresh);
+  refresh();
 
   // A signature is a data URL thousands of characters long; printing it whole
   // would bury every other answer.
@@ -1669,7 +1758,11 @@ export function renderForm(schema, mount) {
     }
 
     const data = {};
-    fields.forEach((f) => { data[f.key] = readValue(form, f); });
+    fields.forEach((f) => {
+      const wrap = form.querySelector(`.fb-field[data-field="${f.key}"]`);
+      if (wrap && wrap.hidden) return;           // never submit an answer nobody was asked for
+      data[f.key] = readValue(form, f);
+    });
     out.textContent = JSON.stringify(data, short, 2);
     out.classList.add('is-visible');
   });
@@ -1687,6 +1780,7 @@ export function initFormBuilder() {
   const rulesEl = document.querySelector('[data-fb-rules]');
   const optsEl  = document.querySelector('[data-fb-opts]');
   const filtEl  = document.querySelector('[data-fb-filters]');
+  const condEl  = document.querySelector('[data-fb-cond]');
   const queryEl = document.querySelector('[data-fb-query]');
   const preview = document.querySelector('[data-fb-preview]');
   const schemaEl= document.querySelector('[data-fb-schema]');
@@ -1711,8 +1805,70 @@ export function initFormBuilder() {
   let searchable = false;           // does the list view get a filter for this?
   let section = null;               // the heading this field sits under
   let help = false;                 // show a line of guidance under the control
+  let cond = null;                  // { field, op, value } — when this field exists at all
 
   const SECTIONS = [null, 'Company', 'Contact', 'Commercial terms'];
+
+  /* The condition can only point at a field that is already in the form, so
+     this row is rebuilt from the schema rather than from the control list. */
+  const paintCond = () => {
+    if (!condEl) return;
+    condEl.innerHTML = '';
+
+    const targets = schema.fields.filter((f) => !['computed', 'signature', 'file', 'lineitems'].includes(f.type));
+    if (!targets.length) {
+      const note = el('p', 'fb-rules__none');
+      note.textContent = 'Add a field first — a condition needs something to point at.';
+      condEl.appendChild(note);
+      return;
+    }
+
+    const fieldOpts = [{ value: '', label: 'always shown' }]
+      .concat(targets.map((f) => ({ value: f.key, label: f.label || f.key })));
+
+    condEl.appendChild(dropdown({
+      options: fieldOpts, value: cond ? cond.field : '', name: '__cond_field',
+      label: 'Depends on', small: true,
+      onChange: (o) => {
+        cond = o.value ? { field: o.value, op: 'equals', value: '' } : null;
+        paintCond();
+      },
+    }));
+    if (!cond) return;
+
+    const target = targets.find((f) => f.key === cond.field);
+    const ops = operatorsFor(target ? target.type : 'text');
+    if (!ops.includes(cond.op)) cond.op = ops[0];
+
+    condEl.appendChild(dropdown({
+      options: ops.map((o) => ({ value: o, label: OPERATORS[o].label })),
+      value: cond.op, name: '__cond_op', label: 'Condition', small: true,
+      onChange: (o) => { cond.op = o.value; paintCond(); },
+    }));
+
+    if (!OPERATORS[cond.op].needsValue) return;
+
+    if (target && target.type === 'toggle') {
+      condEl.appendChild(dropdown({
+        options: [{ value: 'true', label: 'on' }, { value: 'false', label: 'off' }],
+        value: String(cond.value || 'true'), name: '__cond_val', label: 'Value', small: true,
+        onChange: (o) => { cond.value = o.value; },
+      }));
+    } else if (target && target.options) {
+      if (!cond.value) cond.value = target.options[0];
+      condEl.appendChild(dropdown({
+        options: target.options, value: cond.value, name: '__cond_val',
+        label: 'Value', small: true, onChange: (o) => { cond.value = o.value; },
+      }));
+    } else {
+      const box = el('input', 'fb-input fb-input--sm fb-cond__val', {
+        type: 'text', placeholder: 'value…', 'aria-label': 'Value',
+      });
+      box.value = cond.value || '';
+      box.addEventListener('input', () => { cond.value = box.value; });
+      condEl.appendChild(box);
+    }
+  };
 
   const paintOpts = () => {
     if (!optsEl) return;
@@ -1825,6 +1981,7 @@ export function initFormBuilder() {
     paintWidth();
     paintRules();
     paintOpts();
+    paintCond();
   };
 
   /* 25 chips in one wall is a wall. Grouped, it reads as a palette. */
@@ -1854,19 +2011,24 @@ export function initFormBuilder() {
     f.width = width || NATURAL_WIDTH[active.type] || 'w-50';
     if (section) f.section = section;
     if (help && HELP[active.type]) f.help = HELP[active.type];
+    if (cond && cond.field) f.showIf = { ...cond };
     if (searchable && FILTER_KIND[active.type]) f.searchable = true;
     if (Object.keys(rules).length) f.rules = { ...rules };
     schema.fields.push(f);
+    cond = null;                                 // a condition belongs to one field, not to the session
     renderForm(schema, preview);
     if (filtEl) renderFilters(schema, filtEl, queryEl);
     paintSchema(schema.fields.length - 1);
+    paintCond();
   });
 
   resetBtn && resetBtn.addEventListener('click', () => {
     schema = START(); seq = 0;
+    cond = null;
     renderForm(schema, preview);
     if (filtEl) renderFilters(schema, filtEl, queryEl);
     paintSchema();
+    paintCond();
   });
 
   select(CONTROLS[0]);

@@ -764,3 +764,10 @@ strong { font-weight: 600; color: var(--text); }
 .fb-choice--checkbox input:checked + .fb-choice__mark::after { content: ""; position: absolute; left: 5px; top: 1px; width: 4px; height: 9px; border-right: 2px solid #0a0a0b; border-bottom: 2px solid #0a0a0b; transform: rotate(42deg); }
 .fb-choice--radio input:checked + .fb-choice__mark::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--accent); }
 .fb-choice input:focus-visible + .fb-choice__mark { box-shadow: 0 0 0 3px var(--accent-dim); }
+
+/* ---------- the condition row ---------- */
+.fb-cond { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; flex: 1 1 240px; }
+.fb-cond .fb-select { width: auto; flex: 0 1 auto; }
+.fb-cond .fb-select__list { min-width: 100%; width: max-content; max-width: 260px; }
+.fb-cond__val { max-width: 150px; }
+.fb-field.is-hidden { display: none; }
