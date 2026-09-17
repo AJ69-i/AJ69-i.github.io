@@ -2046,9 +2046,14 @@ function buildField(f, idx) {
     const show = () => { err.textContent = message(); };
     native.addEventListener('invalid', (e) => { e.preventDefault(); show(); wrap.classList.add('is-invalid'); });
     native.addEventListener('input', () => { show(); wrap.classList.toggle('is-invalid', !native.validity.valid); });
-    // only the native message is ours to rewrite here; a custom one is reissued
-    // by applyLocale, which is the thing that knows the rules
-    FORM.repaint.push(() => { if (!native.validity.valid) show(); });
+    /* Re-translate a message, never introduce one. applyLocale runs the
+       repainters once at boot to set the form's direction, and a required
+       field is "invalid" from the moment it is drawn — so asking validity
+       alone here put "Please fill out this field" under a control nobody had
+       touched yet. A message that is not on the screen has nothing to
+       translate; a custom one is reissued by applyLocale, which is the thing
+       that knows the rules. */
+    FORM.repaint.push(() => { if (err.textContent && !native.validity.valid) show(); });
   }
   return wrap;
 }
