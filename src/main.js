@@ -4,6 +4,7 @@
    ========================================================= */
 import './style.css';
 import Lenis from 'lenis';
+import { initFormBuilder } from './form-builder.js';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -80,10 +81,52 @@ function splitLines(el) {
 }
 
 /* ---------- Reduced-motion: minimal, fully visible ---------- */
+/* The mobile menu is behaviour, not decoration, so it is wired in both the
+   full and the reduced-motion path. Lenis is optional: without it the browser
+   scrolls natively, which is what a reduced-motion visitor wants anyway. */
+function wireMenu(lenis) {
+  const navToggle = $('[data-nav-toggle]');
+  const navMenu = $('[data-nav-menu]');
+  if (!navToggle || !navMenu) return;
+
+  const setMenu = (open) => {
+    navMenu.classList.toggle('is-open', open);
+    navToggle.setAttribute('aria-expanded', String(open));
+    navToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    navMenu.toggleAttribute('inert', !open);
+    document.body.style.overflow = open ? 'hidden' : '';
+    if (lenis) open ? lenis.stop() : lenis.start();   // keep the page from scrolling behind the overlay
+  };
+
+  navToggle.addEventListener('click', () => setMenu(!navMenu.classList.contains('is-open')));
+  // capture phase: close (and restart Lenis) before the generic anchor handler scrolls
+  navMenu.querySelectorAll('a[href^="#"]').forEach((a) =>
+    a.addEventListener('click', () => setMenu(false), true));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && navMenu.classList.contains('is-open')) setMenu(false);
+  });
+  // a resize past the breakpoint should never leave the page locked
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 720 && navMenu.classList.contains('is-open')) setMenu(false);
+  });
+}
+
 function bootReduced() {
   const pre = $('[data-preloader]');
-  if (pre) pre.style.display = 'none';
+  if (pre) { pre.dataset.done = '1'; pre.style.display = 'none'; }
   document.documentElement.classList.add('ready');
+
+  /* Motion is off — the site is not. The demo, the menu and the nav backdrop
+     all have to keep working, so they are booted here too. */
+  initFormBuilder();
+  wireMenu(null);
+
+  const nav = $('[data-nav]');
+  if (nav) {
+    const onScroll = () => nav.classList.toggle('is-scrolled', window.scrollY > 40);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+  }
 }
 
 /* ---------- Full experience ---------- */
@@ -94,31 +137,10 @@ function boot() {
   gsap.ticker.add((time) => lenis.raf(time * 1000));
   gsap.ticker.lagSmoothing(0);
 
-  /* ---- Mobile menu ---- */
-  const navToggle = $('[data-nav-toggle]');
+  initFormBuilder();
+
   const navMenu = $('[data-nav-menu]');
-  const setMenu = (open) => {
-    if (!navMenu || !navToggle) return;
-    navMenu.classList.toggle('is-open', open);
-    navToggle.setAttribute('aria-expanded', String(open));
-    navToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
-    navMenu.toggleAttribute('inert', !open);
-    document.body.style.overflow = open ? 'hidden' : '';
-    open ? lenis.stop() : lenis.start();   // keep the page from scrolling behind the overlay
-  };
-  if (navToggle && navMenu) {
-    navToggle.addEventListener('click', () => setMenu(navMenu.classList.contains('is-open') === false));
-    // capture phase: close (and restart Lenis) before the generic anchor handler scrolls
-    navMenu.querySelectorAll('a[href^="#"]').forEach((a) =>
-      a.addEventListener('click', () => setMenu(false), true));
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && navMenu.classList.contains('is-open')) setMenu(false);
-    });
-    // a resize past the breakpoint should never leave the page locked
-    window.addEventListener('resize', () => {
-      if (window.innerWidth > 720 && navMenu.classList.contains('is-open')) setMenu(false);
-    });
-  }
+  wireMenu(lenis);
 
   // anchor smooth scroll
   $$('a[href^="#"]').forEach((a) => {

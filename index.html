@@ -7,11 +7,24 @@
   <meta name="author" content="Ahmed Jab" />
   <meta name="theme-color" content="#0a0a0b" />
 
-  <!-- Open Graph -->
+  <link rel="canonical" href="https://aj69-i.github.io/" />
+
+  <!-- Open Graph / social preview -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Ahmed Jab" />
+  <meta property="og:url" content="https://aj69-i.github.io/" />
   <meta property="og:title" content="Ahmed Jab — Senior Frontend Engineer" />
   <meta property="og:description" content="I build the shared foundations enterprise teams ship on. Angular · TypeScript · real-time UI." />
-  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://aj69-i.github.io/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Ahmed Jab — Senior Frontend Engineer. 4+ years, 30+ ERP modules, 350+ components." />
+  <meta property="og:locale" content="en_US" />
+
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Ahmed Jab — Senior Frontend Engineer" />
+  <meta name="twitter:description" content="I build the shared foundations enterprise teams ship on. Angular · TypeScript · real-time UI." />
+  <meta name="twitter:image" content="https://aj69-i.github.io/og.png" />
 
   <title>Ahmed Jab — Senior Frontend Engineer</title>
 
@@ -74,6 +87,7 @@
     <nav class="nav__links">
       <a href="#about" data-cursor-hover>About</a>
       <a href="#work" data-cursor-hover>Work</a>
+      <a href="#demo" data-cursor-hover>Demo</a>
       <a href="#experience" data-cursor-hover>Experience</a>
       <a href="#contact" data-cursor-hover>Contact</a>
     </nav>
@@ -91,9 +105,10 @@
     <nav class="menu__links" aria-label="Mobile">
       <a href="#about"><span class="menu__idx">01</span>About</a>
       <a href="#work"><span class="menu__idx">02</span>Work</a>
-      <a href="#experience"><span class="menu__idx">03</span>Experience</a>
-      <a href="#skills"><span class="menu__idx">04</span>Toolbox</a>
-      <a href="#contact"><span class="menu__idx">05</span>Contact</a>
+      <a href="#demo"><span class="menu__idx">03</span>Live Demo</a>
+      <a href="#experience"><span class="menu__idx">04</span>Experience</a>
+      <a href="#skills"><span class="menu__idx">05</span>Toolbox</a>
+      <a href="#contact"><span class="menu__idx">06</span>Contact</a>
     </nav>
     <div class="menu__foot">
       <a href="mailto:ahmedjab7697@gmail.com">ahmedjab7697@gmail.com</a>
@@ -120,6 +135,14 @@
         <div class="hero__actions" data-reveal>
           <a href="#work" class="btn btn--primary magnetic" data-cursor-hover><span>View my work</span></a>
           <a href="#contact" class="btn btn--ghost magnetic" data-cursor-hover><span>Get in touch</span></a>
+          <a href="AhmedJab_CV.pdf" class="btn btn--text" download data-cursor-hover>
+            <span>Download CV
+              <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false">
+                <path d="M8 1v9m0 0L4.5 6.5M8 10l3.5-3.5M2 13h12" fill="none" stroke="currentColor"
+                      stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </a>
         </div>
       </div>
       <div class="hero__scroll" data-reveal>
@@ -245,10 +268,54 @@
       </div>
     </section>
 
+    <!-- LIVE DEMO -->
+    <section class="demo section" id="demo">
+      <div class="container">
+        <p class="section-label" data-reveal><span>03</span> — Live Demo</p>
+        <h2 class="section-title section-title--lg" data-split-lines>Don't take my word for it.</h2>
+        <p class="demo__note" data-reveal>
+          The Form Builder above runs on a config, not on code. Here is that idea in miniature: pick a
+          control on the left to see it render instantly, add it, and the form on the right rebuilds
+          from the schema — validation and all. Nothing downstream knows about specific control types;
+          adding one is a single entry in an array. The production engine has 25 of them.
+        </p>
+
+        <div class="fb" data-reveal>
+          <div class="fb__pane">
+            <div class="fb__bar"><span class="fb__tab">1 — choose a control</span></div>
+
+            <div class="fb__gallery" data-fb-gallery role="group" aria-label="Control types"></div>
+
+            <div class="fb__single">
+              <p class="fb__single-label">Preview</p>
+              <div data-fb-single></div>
+              <p class="fb__hint" data-fb-hint></p>
+              <button class="fb-add" type="button" data-fb-add>
+                <span>Add to form</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="fb__pane fb__pane--preview">
+            <div class="fb__bar">
+              <span class="fb__tab">2 — the schema it writes</span>
+              <span class="fb__bar-actions">
+                <span class="fb__count" data-fb-count></span>
+                <button class="fb__reset" type="button" data-fb-reset>Reset</button>
+              </span>
+            </div>
+            <pre class="fb__schema" data-fb-schema aria-live="polite"></pre>
+            <div class="fb__bar fb__bar--mid"><span class="fb__tab">3 — the form it renders</span></div>
+            <div class="fb__preview" data-fb-preview></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- EXPERIENCE -->
     <section class="experience section" id="experience">
       <div class="container">
-        <p class="section-label" data-reveal><span>03</span> — Experience</p>
+        <p class="section-label" data-reveal><span>04</span> — Experience</p>
         <h2 class="section-title section-title--lg" data-split-lines>Where I've been building.</h2>
 
         <div class="timeline" data-timeline>
@@ -323,7 +390,7 @@
     <!-- SKILLS -->
     <section class="skills section" id="skills">
       <div class="container">
-        <p class="section-label" data-reveal><span>04</span> — Toolbox</p>
+        <p class="section-label" data-reveal><span>05</span> — Toolbox</p>
         <h2 class="section-title section-title--lg" data-split-lines>The stack I build with.</h2>
 
         <div class="skills__grid">
@@ -370,7 +437,7 @@
     <!-- CONTACT -->
     <section class="contact section" id="contact">
       <div class="container contact__inner">
-        <p class="section-label" data-reveal><span>05</span> — Contact</p>
+        <p class="section-label" data-reveal><span>06</span> — Contact</p>
         <h2 class="contact__title" data-split-lines>Let's build something<br />worth scrolling for.</h2>
         <a class="contact__mail magnetic" href="mailto:ahmedjab7697@gmail.com" data-cursor-hover>
           <span data-split-chars>ahmedjab7697@gmail.com</span>
@@ -379,6 +446,7 @@
           <a href="https://www.linkedin.com/in/ahmed-jab-/" target="_blank" rel="noopener" data-cursor-hover>LinkedIn ↗</a>
           <a href="https://github.com/AJ69-i" target="_blank" rel="noopener" data-cursor-hover>GitHub ↗</a>
           <a href="tel:+201501715523" data-cursor-hover>+20 150 171 5523 ↗</a>
+          <a href="AhmedJab_CV.pdf" download data-cursor-hover>Download CV ↓</a>
         </div>
       </div>
       <footer class="footer">
