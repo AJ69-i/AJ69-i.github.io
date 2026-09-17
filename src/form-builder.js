@@ -124,6 +124,66 @@ export const CONTROLS = [
     sample: { key: 'total', label: 'Order total', type: 'computed', expr: 'sum(qty * price)', format: 'currency' } },
 ];
 
+/* ---------- what each type may be constrained by ----------
+   A rule catalogue, not an if-tree. The engine never asks "is this an
+   email?" — it asks the type which rules it accepts, and a type that
+   accepts none says so out loud. */
+const PATTERNS = {
+  email:    { label: 'email format',   value: '^[^@\\s]+@[^@\\s]+\\.[a-z]{2,}$' },
+  url:      { label: 'https only',     value: '^https://.+' },
+  tel:      { label: 'digits only',    value: '^[0-9 ]{7,15}$' },
+  password: { label: 'letters + digit', value: '^(?=.*[A-Za-z])(?=.*\\d).{8,}$' },
+  text:     { label: 'letters only',   value: '^[A-Za-z .-]+$' },
+};
+
+const rule = (key, label, value) => ({ key, label, value });
+
+const RULES = {
+  text:      [rule('required', 'required', true), rule('minLength', 'min length', 3), rule('maxLength', 'max length', 60), rule('pattern', PATTERNS.text.label, PATTERNS.text.value)],
+  textarea:  [rule('required', 'required', true), rule('minLength', 'min length', 20), rule('maxLength', 'max length', 500)],
+  email:     [rule('required', 'required', true), rule('pattern', PATTERNS.email.label, PATTERNS.email.value)],
+  url:       [rule('required', 'required', true), rule('pattern', PATTERNS.url.label, PATTERNS.url.value)],
+  tel:       [rule('required', 'required', true), rule('pattern', PATTERNS.tel.label, PATTERNS.tel.value)],
+  password:  [rule('required', 'required', true), rule('minLength', 'min length', 8), rule('pattern', PATTERNS.password.label, PATTERNS.password.value)],
+  number:    [rule('required', 'required', true), rule('min', 'min', 1), rule('max', 'max', 500)],
+  currency:  [rule('required', 'required', true), rule('min', 'min', 0), rule('max', 'max', 1000000)],
+  range:     [],
+  rating:    [rule('required', 'required', true), rule('min', 'at least', 3)],
+  select:    [rule('required', 'required', true)],
+  multiselect: [rule('required', 'required', true), rule('minSelected', 'min selected', 2)],
+  checkbox:  [rule('required', 'required', true), rule('minSelected', 'min selected', 1)],
+  radio:     [rule('required', 'required', true)],
+  toggle:    [],
+  date:      [rule('required', 'required', true), rule('notPast', 'no past dates', true)],
+  time:      [rule('required', 'required', true)],
+  'datetime-local': [rule('required', 'required', true), rule('notPast', 'no past dates', true)],
+  file:      [rule('required', 'required', true), rule('accept', 'PDF only', '.pdf'), rule('maxSize', 'max 5 MB', 5)],
+  richtext:  [rule('required', 'required', true), rule('maxLength', 'max length', 2000)],
+  signature: [rule('required', 'required', true)],
+  color:     [],
+  lookup:    [rule('required', 'required', true)],
+  lineitems: [rule('minRows', 'min rows', 2)],
+  computed:  [],
+};
+
+/* Why a type has nothing to validate — worth saying, because it is a
+   decision rather than an oversight. */
+const NO_RULES = {
+  range: 'A slider always holds a value inside its own bounds.',
+  toggle: 'A boolean is answered either way.',
+  color: 'Any hex the picker returns is already valid.',
+  computed: 'Never typed into, so there is nothing to reject.',
+};
+
+const WIDTHS = ['w-25', 'w-33', 'w-50', 'w-75', 'w-100'];
+
+/* Some controls are the wrong shape for half a row; that is a property of
+   the control, so it ships as the type's starting width, not a hard rule. */
+const NATURAL_WIDTH = {
+  textarea: 'w-100', checkbox: 'w-100', radio: 'w-100', multiselect: 'w-100',
+  richtext: 'w-100', signature: 'w-100', lineitems: 'w-100', lookup: 'w-100', file: 'w-100',
+};
+
 /* The group order the palette renders in. */
 export const GROUPS = ['Text', 'Numbers', 'Choice', 'Date & time', 'Files & rich', 'Business'];
 
@@ -417,18 +477,20 @@ function recompute(form, fields) {
 /* ---------- the engine: one field config -> one DOM control ---------- */
 function buildField(f, idx) {
   const id = `fb-${f.key || idx}`;
-  const wide = ['textarea', 'checkbox', 'radio', 'multiselect', 'richtext', 'signature', 'lineitems', 'lookup'].includes(f.type);
-  const wrap = el('div', 'fb-field' + (wide ? ' fb-field--wide' : ''));
+  const rules = f.rules || {};
+  const width = f.width || NATURAL_WIDTH[f.type] || 'w-50';
+  const wrap = el('div', `fb-field ${width}`);
+  wrap.dataset.field = f.key;
 
   const label = el('label', 'fb-label', { for: id });
   label.textContent = f.label || f.key || `Field ${idx + 1}`;
-  if (f.required) { const s = el('span', 'fb-req'); s.textContent = '*'; label.appendChild(s); }
+  if (rules.required) { const s = el('span', 'fb-req'); s.textContent = '*'; label.appendChild(s); }
   wrap.appendChild(label);
 
   let input;
   switch (f.type) {
     case 'select':
-      input = el('select', 'fb-input', { id, name: f.key, required: !!f.required });
+      input = el('select', 'fb-input', { id, name: f.key, required: !!rules.required });
       (f.options || []).forEach((o) => {
         const opt = el('option', null, { value: o });
         opt.textContent = o;
@@ -461,7 +523,7 @@ function buildField(f, idx) {
     }
 
     case 'textarea':
-      input = el('textarea', 'fb-input', { id, name: f.key, rows: 3, required: !!f.required, placeholder: f.placeholder || '' });
+      input = el('textarea', 'fb-input', { id, name: f.key, rows: 3, required: !!rules.required, placeholder: f.placeholder || '' });
       if (f.value) input.value = f.value;
       break;
 
@@ -473,7 +535,7 @@ function buildField(f, idx) {
         if (d === f.dial) o.selected = true; dial.appendChild(o);
       });
       const num = el('input', 'fb-input', { id, type: 'tel', name: f.key, inputmode: 'tel',
-        required: !!f.required, placeholder: f.placeholder || '' });
+        required: !!rules.required, placeholder: f.placeholder || '' });
       input.append(dial, num);
       break;
     }
@@ -485,7 +547,7 @@ function buildField(f, idx) {
         const o = el('option', null, { value: c }); o.textContent = c;
         if (c === f.currency) o.selected = true; cur.appendChild(o);
       });
-      const amt = el('input', 'fb-input', { id, type: 'number', name: f.key, step: '0.01', min: 0, required: !!f.required });
+      const amt = el('input', 'fb-input', { id, type: 'number', name: f.key, step: '0.01', min: 0, required: !!rules.required });
       if (f.value != null) amt.value = f.value;
       input.append(cur, amt);
       break;
@@ -624,7 +686,7 @@ function buildField(f, idx) {
       input = el('div', 'fb-lookup');
       const search = el('input', 'fb-input', { id, type: 'text', autocomplete: 'off',
         role: 'combobox', 'aria-expanded': 'false', placeholder: `Search ${f.ref}…` });
-      const hidden = el('input', null, { type: 'hidden', name: f.key, required: !!f.required });
+      const hidden = el('input', null, { type: 'hidden', name: f.key, required: !!rules.required });
       const list = el('ul', 'fb-lookup__list', { role: 'listbox', 'data-lenis-prevent': true });
       list.hidden = true;
 
@@ -718,10 +780,25 @@ function buildField(f, idx) {
     default:
       input = el('input', 'fb-input', {
         id, name: f.key, type: f.type || 'text',
-        required: !!f.required, placeholder: f.placeholder || '',
+        required: !!rules.required, placeholder: f.placeholder || '',
         min: f.min, max: f.max,
       });
       if (f.value != null) input.value = f.value;
+  }
+
+  // Native constraints where the browser already does the work well.
+  const target = input.matches('input, select, textarea') ? input
+               : input.querySelector('input:not([type=hidden]), select, textarea');
+  if (target) {
+    if (rules.minLength) target.minLength = rules.minLength;
+    if (rules.maxLength) target.maxLength = rules.maxLength;
+    if (rules.min != null && target.type !== 'text') target.min = rules.min;
+    if (rules.max != null && target.type !== 'text') target.max = rules.max;
+    if (rules.pattern && ['text', 'tel', 'email', 'url', 'password', 'search'].includes(target.type)) {
+      target.pattern = rules.pattern;
+      target.title = 'Must match the pattern set in the schema';
+    }
+    if (rules.accept && target.type === 'file') target.accept = rules.accept;
   }
 
   wrap.appendChild(input);
@@ -771,6 +848,45 @@ function readValue(form, f) {
   }
 }
 
+/* Rules the browser has no attribute for. Kept in one place so the field
+   builder never grows a special case per type. */
+function customErrors(form, fields) {
+  const today = new Date(new Date().toDateString());
+  const out = [];
+
+  fields.forEach((f) => {
+    const r = f.rules || {};
+    const v = readValue(form, f);
+    const empty = v == null || v === '' || (Array.isArray(v) && !v.length) ||
+                  (f.type === 'rating' && !v);
+
+    // hidden inputs are barred from constraint validation, so these ask here
+    if (r.required && ['lookup', 'signature', 'multiselect', 'rating', 'richtext'].includes(f.type) && empty)
+      out.push([f.key, 'Required.']);
+
+    if (r.minSelected && (!Array.isArray(v) || v.length < r.minSelected))
+      out.push([f.key, `Choose at least ${r.minSelected}.`]);
+
+    if (r.minRows && (!Array.isArray(v) || v.length < r.minRows))
+      out.push([f.key, `At least ${r.minRows} row${r.minRows === 1 ? '' : 's'}.`]);
+
+    if (r.min != null && f.type === 'rating' && Number(v) < r.min)
+      out.push([f.key, `At least ${r.min}.`]);
+
+    if (r.notPast && v && new Date(v) < today)
+      out.push([f.key, 'Cannot be in the past.']);
+
+    if (r.maxSize && f.type === 'file') {
+      const node = form.querySelector(`[name="${f.key}"]`);
+      const file = node && node.files && node.files[0];
+      if (file && file.size > r.maxSize * 1024 * 1024)
+        out.push([f.key, `Must be under ${r.maxSize} MB.`]);
+    }
+  });
+
+  return out;
+}
+
 export function renderForm(schema, mount) {
   mount.innerHTML = '';
   const fields = (schema && schema.fields) || [];
@@ -806,6 +922,26 @@ export function renderForm(schema, mount) {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     if (!form.reportValidity()) return;
+
+    form.querySelectorAll('.fb-field').forEach((w) => {
+      w.classList.remove('is-invalid');
+      const p = w.querySelector('.fb-error');
+      if (p && !w.querySelector(':invalid')) p.textContent = '';
+    });
+    const problems = customErrors(form, fields);
+    if (problems.length) {
+      problems.forEach(([key, msg]) => {
+        const w = form.querySelector(`.fb-field[data-field="${key}"]`);
+        if (!w) return;
+        w.classList.add('is-invalid');
+        w.querySelector('.fb-error').textContent = msg;
+      });
+      const first = form.querySelector('.fb-field.is-invalid');
+      if (first) first.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      out.classList.remove('is-visible');
+      return;
+    }
+
     const data = {};
     fields.forEach((f) => { data[f.key] = readValue(form, f); });
     out.textContent = JSON.stringify(data, short, 2);
@@ -821,6 +957,8 @@ export function initFormBuilder() {
   const single  = document.querySelector('[data-fb-single]');
   const hint    = document.querySelector('[data-fb-hint]');
   const addBtn  = document.querySelector('[data-fb-add]');
+  const widthEl = document.querySelector('[data-fb-width]');
+  const rulesEl = document.querySelector('[data-fb-rules]');
   const preview = document.querySelector('[data-fb-preview]');
   const schemaEl= document.querySelector('[data-fb-schema]');
   const resetBtn= document.querySelector('[data-fb-reset]');
@@ -830,13 +968,52 @@ export function initFormBuilder() {
   gallery.dataset.ready = '1';
 
   const START = () => ({ fields: [
-    { key: 'company', label: 'Company name', type: 'text', required: true, placeholder: 'Acme Trading' },
-    { key: 'plan', label: 'Plan', type: 'select', options: ['Starter', 'Growth', 'Enterprise'], value: 'Growth' },
+    { key: 'company', label: 'Company name', type: 'text', width: 'w-50',
+      placeholder: 'Acme Trading', rules: { required: true, minLength: 3 } },
+    { key: 'plan', label: 'Plan', type: 'select', width: 'w-50',
+      options: ['Starter', 'Growth', 'Enterprise'], value: 'Growth' },
   ]});
 
   let schema = START();
   let active = CONTROLS[0];
   let seq = 0;
+  let width = null;                 // null = whatever the type calls natural
+  let rules = {};                   // the rules the visitor has switched on
+
+  const paintWidth = () => {
+    if (!widthEl) return;
+    const current = width || NATURAL_WIDTH[active.type] || 'w-50';
+    widthEl.innerHTML = '';
+    WIDTHS.forEach((w) => {
+      const b = el('button', 'fb-w', { type: 'button', 'aria-pressed': String(w === current) });
+      b.textContent = w.replace('w-', '') + '%';
+      b.addEventListener('click', () => { width = w; paintWidth(); });
+      widthEl.appendChild(b);
+    });
+  };
+
+  const paintRules = () => {
+    if (!rulesEl) return;
+    rulesEl.innerHTML = '';
+    const list = RULES[active.type] || [];
+    if (!list.length) {
+      const note = el('p', 'fb-rules__none');
+      note.textContent = NO_RULES[active.type] || 'Nothing to validate on this type.';
+      rulesEl.appendChild(note);
+      return;
+    }
+    list.forEach((r) => {
+      const on = rules[r.key] !== undefined;
+      const b = el('button', 'fb-rule', { type: 'button', 'aria-pressed': String(on) });
+      b.textContent = r.label;
+      b.addEventListener('click', () => {
+        if (rules[r.key] !== undefined) delete rules[r.key];
+        else rules[r.key] = r.value;
+        paintRules();
+      });
+      rulesEl.appendChild(b);
+    });
+  };
 
   /* The schema is the point of the whole demo, so it is never hidden behind a
      toggle. Every add rewrites it in place and flashes the lines it just wrote,
@@ -872,8 +1049,12 @@ export function initFormBuilder() {
 
   const select = (c) => {
     active = c;
+    width = null;                                        // back to the type's own shape
+    rules = c.sample.required ? { required: true } : {}; // rules belong to a type, not to the session
     gallery.querySelectorAll('.fb-chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.type === c.type)));
     paintPreview();
+    paintWidth();
+    paintRules();
   };
 
   /* 25 chips in one wall is a wall. Grouped, it reads as a palette. */
@@ -899,6 +1080,9 @@ export function initFormBuilder() {
   addBtn && addBtn.addEventListener('click', () => {
     seq += 1;
     const f = { ...active.sample, key: `${active.sample.key}_${seq}` };
+    delete f.required;                       // required is a rule now, like every other constraint
+    f.width = width || NATURAL_WIDTH[active.type] || 'w-50';
+    if (Object.keys(rules).length) f.rules = { ...rules };
     schema.fields.push(f);
     renderForm(schema, preview);
     paintSchema(schema.fields.length - 1);

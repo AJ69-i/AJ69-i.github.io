@@ -275,9 +275,10 @@
         <h2 class="section-title section-title--lg" data-split-lines>Don't take my word for it.</h2>
         <p class="demo__note" data-reveal>
           The Form Builder above runs on a config, not on code. Here is that idea in miniature: pick a
-          control on the left to see it render instantly, add it, and the form on the right rebuilds
-          from the schema — validation and all. Nothing downstream knows about specific control types;
-          adding one is a single entry in an array. The production engine has 25 of them.
+          control, set its width and the rules it should enforce, and watch both land in the schema and
+          take effect in the form below it. Each type offers only the rules that make sense for it — and
+          a type with nothing to validate says so. Nothing downstream knows about specific control types;
+          adding one is a single entry in an array.
         </p>
 
         <div class="fb" data-reveal>
@@ -290,6 +291,18 @@
               <p class="fb__single-label">Preview</p>
               <div data-fb-single></div>
               <p class="fb__hint" data-fb-hint></p>
+
+              <div class="fb__props">
+                <div class="fb__prop">
+                  <span class="fb__prop-label">Width</span>
+                  <div class="fb-widths" data-fb-width role="group" aria-label="Field width"></div>
+                </div>
+                <div class="fb__prop">
+                  <span class="fb__prop-label">Validation</span>
+                  <div class="fb-rules" data-fb-rules role="group" aria-label="Validation rules"></div>
+                </div>
+              </div>
+
               <button class="fb-add" type="button" data-fb-add>
                 <span>Add to form</span>
               </button>
