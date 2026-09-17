@@ -76,7 +76,7 @@ export const CONTROLS = [
     sample: { key: 'score', label: 'Satisfaction', type: 'rating', max: 5, value: 4 } },
 
   { type: 'percent', label: 'Percentage', group: 'Numbers', icon: svg('<path d="M5.5 14.5 14.5 5.5"/><circle cx="6.6" cy="6.6" r="2.3"/><circle cx="13.4" cy="13.4" r="2.3"/>'),
-    hint: 'A rate that declares its own scale. 14 and 0.14 are the same discount stored two different ways \u2014 the schema says which, so nothing downstream has to guess.',
+    hint: 'A rate that declares its own scale. 14 and 0.14 are the same discount stored two different ways — the schema says which, so nothing downstream has to guess.',
     sample: { key: 'discount', label: 'Discount', type: 'percent', scale: 1, min: 0, max: 100, value: 10 } },
 
   /* ---- Choice ---- */
@@ -444,7 +444,7 @@ const MOCKS = {
   tel:      () => `<div class="mk-box"><span class="mk-pill">+20 <i class="mk-caret"></i></span>${bar('40%')}</div>`,
   currency: () => `<div class="mk-box"><span class="mk-pill">EGP <i class="mk-caret"></i></span>${bar('30%')}</div>`,
   percent:  () => `<div class="mk-box">${bar('24%')}<span class="mk-unit">%</span></div>
-                   <div class="mk-scale"><span class="mk-scale__seg">0\u2013100</span><span class="mk-scale__seg is-on">0\u20131</span></div>`,
+                   <div class="mk-scale"><span class="mk-scale__seg">0–100</span><span class="mk-scale__seg is-on">0–1</span></div>`,
   range:    () => `<div class="mk-track"><span class="mk-fill"></span><span class="mk-knob"></span></div>`,
   rating:   () => { const filled = [1, 1, 1, 1, 0];
                     return `<div class="mk-stars">${filled
@@ -623,7 +623,7 @@ function recompute(form, fields) {
     const n = form.querySelector(`[name="${f.key}"]`);
     if (!n) return;
     /* A percentage enters an expression the way it will be stored, never the
-       way it was typed \u2014 otherwise every formula has to remember which of
+       way it was typed — otherwise every formula has to remember which of
        the two scales this particular field happened to declare. */
     flat[baseKey(f.key)] = (Number(n.value) || 0) / (f.type === 'percent' ? pctDiv(f) : 1);
   });
@@ -1029,7 +1029,7 @@ function buildField(f, idx) {
         meter.querySelectorAll('i').forEach((seg, i) => seg.classList.toggle('is-on', !!box.value && i < s.score));
         note.textContent = !box.value ? ''
           : s.score === 4 ? s.label
-          : `${s.label} \u2014 needs ${listOf(s.missing.slice(0, 2))}`;
+          : `${s.label} — needs ${listOf(s.missing.slice(0, 2))}`;
       };
       box.addEventListener('input', paint);
       input.append(box, meter, note);
@@ -1079,8 +1079,8 @@ function buildField(f, idx) {
       const paint = () => {
         const typed = Number(amt.value);
         stored.textContent = amt.value === '' || !Number.isFinite(typed)
-          ? '\u2192 \u2014'
-          : `\u2192 ${Math.round((typed / pctDiv(f)) * 1e6) / 1e6}`;
+          ? '→ —'
+          : `→ ${Math.round((typed / pctDiv(f)) * 1e6) / 1e6}`;
       };
       amt.addEventListener('input', paint);
       input.append(amt, sign, stored);
