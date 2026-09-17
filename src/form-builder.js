@@ -571,6 +571,23 @@ function recompute(form, fields) {
   });
 }
 
+/* Every popover owes the visitor the same two exits: Escape from anywhere
+   inside it, and a click somewhere else. Wiring that per component is how
+   one of them ends up missing it. */
+function dismissable(wrap, close, isOpen) {
+  // Escape listens on the document, not on the wrapper: a click inside a
+  // popover does not always leave focus there, and the key has to work anyway.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !isOpen()) return;
+    close();
+    const btn = wrap.querySelector('button');
+    if (btn) btn.focus();
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (isOpen() && !wrap.contains(e.target)) close();
+  });
+}
+
 /* ---------- a listbox, because the native one is not ours to design ----------
    A <select>'s popup is drawn by the operating system: its own font, its own
    highlight colour, its own metrics. Nothing in a design system reaches it.
@@ -649,10 +666,187 @@ function dropdown({ options, value, name, id, label, small, required, onChange }
       if (at > -1) { index = at; paint(); if (openNow) list.querySelector('.is-on').scrollIntoView({ block: 'nearest' }); }
     }
   });
-  btn.addEventListener('blur', () => setTimeout(close, 120));
+  dismissable(wrap, close, () => !list.hidden);
 
   wrap.append(btn, hidden, list);
   paint();
+  return wrap;
+}
+
+/* ---------- date and time, ours as well ----------
+   <input type="date"> hands the browser a text format we never chose
+   (mm/dd/yyyy on one machine, dd/mm/yyyy on the next) and a calendar drawn
+   by the OS. The preview panel already shows the calendar this design wants;
+   this is that calendar, made real. */
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
+                     'August', 'September', 'October', 'November', 'December'];
+const pad2 = (n) => String(n).padStart(2, '0');
+const iso = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const prettyDate = (d) => `${pad2(d.getDate())} ${MONTH_NAMES[d.getMonth()].slice(0, 3)} ${d.getFullYear()}`;
+
+function datePicker({ name, id, label, withTime, required }) {
+  const wrap = el('div', 'fb-date');
+  const hidden = el('input', null, { type: 'hidden', name, required: !!required });
+  const btn = el('button', 'fb-date__btn', {
+    type: 'button', id, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': label || name,
+  });
+  const text = el('span', 'fb-date__value');
+  text.textContent = withTime ? 'Pick a date and time' : 'Pick a date';
+  btn.append(el('i', 'fb-date__icon'), text);
+
+  const pop = el('div', 'fb-date__pop', { role: 'dialog', 'aria-label': label || 'Calendar', 'data-lenis-prevent': true });
+  pop.hidden = true;
+
+  const today = new Date();
+  let view = new Date(today.getFullYear(), today.getMonth(), 1);
+  let picked = null;
+  let hh = 9, mm = 0;
+
+  const head = el('div', 'fb-date__head');
+  const prev = el('button', 'fb-date__nav', { type: 'button', 'aria-label': 'Previous month' });
+  const next = el('button', 'fb-date__nav fb-date__nav--next', { type: 'button', 'aria-label': 'Next month' });
+  const title = el('span', 'fb-date__title');
+  head.append(prev, title, next);
+
+  const grid = el('div', 'fb-date__grid');
+  pop.append(head, grid);
+
+  let timeRow = null, hourEl = null, minEl = null, merEl = null;
+  if (withTime) {
+    timeRow = el('div', 'fb-date__time');
+    hourEl = el('button', 'fb-date__seg', { type: 'button', 'aria-label': 'Hour' });
+    minEl = el('button', 'fb-date__seg', { type: 'button', 'aria-label': 'Minute' });
+    const colon = el('span', 'fb-date__colon'); colon.textContent = ':';
+    merEl = el('span', 'fb-date__mer');
+    ['AM', 'PM'].forEach((m) => {
+      const b = el('button', 'fb-date__merbtn', { type: 'button', 'aria-pressed': String(m === 'AM') });
+      b.textContent = m;
+      b.addEventListener('click', () => {
+        const isPm = m === 'PM';
+        hh = (hh % 12) + (isPm ? 12 : 0);
+        paint();
+      });
+      merEl.appendChild(b);
+    });
+    hourEl.addEventListener('click', () => { hh = (hh + 1) % 24; paint(); });
+    minEl.addEventListener('click', () => { mm = (mm + 15) % 60; paint(); });
+    timeRow.append(hourEl, colon, minEl, merEl);
+    pop.appendChild(timeRow);
+  }
+
+  const emit = () => {
+    if (!picked) { hidden.value = ''; return; }
+    hidden.value = withTime ? `${iso(picked)}T${pad2(hh)}:${pad2(mm)}` : iso(picked);
+    text.textContent = withTime
+      ? `${prettyDate(picked)} · ${pad2(hh % 12 || 12)}:${pad2(mm)} ${hh < 12 ? 'AM' : 'PM'}`
+      : prettyDate(picked);
+    text.classList.add('is-set');
+    hidden.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+
+  const paint = () => {
+    title.textContent = `${MONTH_NAMES[view.getMonth()]} ${view.getFullYear()}`;
+    grid.innerHTML = '';
+    ['M', 'T', 'W', 'T', 'F', 'S', 'S'].forEach((d) => {
+      const h = el('span', 'fb-date__dow'); h.textContent = d; grid.appendChild(h);
+    });
+    const lead = (new Date(view.getFullYear(), view.getMonth(), 1).getDay() + 6) % 7;
+    const len = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate();
+    for (let i = 0; i < lead; i++) grid.appendChild(el('span', 'fb-date__pad'));
+    for (let d = 1; d <= len; d++) {
+      const cell = new Date(view.getFullYear(), view.getMonth(), d);
+      const b = el('button', 'fb-date__day', { type: 'button' });
+      b.textContent = d;
+      if (iso(cell) === iso(today)) b.classList.add('is-today');
+      if (picked && iso(cell) === iso(picked)) { b.classList.add('is-sel'); b.setAttribute('aria-pressed', 'true'); }
+      b.addEventListener('click', () => { picked = cell; paint(); emit(); if (!withTime) close(); });
+      grid.appendChild(b);
+    }
+    if (withTime) {
+      hourEl.textContent = pad2(hh % 12 || 12);
+      minEl.textContent = pad2(mm);
+      [...merEl.children].forEach((c) => c.setAttribute('aria-pressed', String((c.textContent === 'PM') === hh >= 12)));
+      if (picked) emit();
+    }
+  };
+
+  const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  const open = () => { pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); paint(); };
+
+  prev.addEventListener('click', () => { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); paint(); });
+  next.addEventListener('click', () => { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); paint(); });
+  btn.addEventListener('click', () => (pop.hidden ? open() : close()));
+  dismissable(wrap, close, () => !pop.hidden);
+
+  wrap.append(btn, hidden, pop);
+  paint();
+  return wrap;
+}
+
+/* A time on its own: no calendar, just the clock the preview draws. */
+function timePicker({ name, id, label, required }) {
+  const wrap = el('div', 'fb-date');
+  const hidden = el('input', null, { type: 'hidden', name, required: !!required });
+  const btn = el('button', 'fb-date__btn', {
+    type: 'button', id, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': label || name,
+  });
+  const text = el('span', 'fb-date__value');
+  text.textContent = 'Pick a time';
+  btn.append(el('i', 'fb-date__icon fb-date__icon--clock'), text);
+
+  const pop = el('div', 'fb-date__pop fb-date__pop--time', { role: 'dialog', 'data-lenis-prevent': true });
+  pop.hidden = true;
+  const cols = el('div', 'fb-time__cols');
+  const hourList = el('div', 'fb-time__col', { role: 'listbox', 'aria-label': 'Hour', 'data-lenis-prevent': true });
+  const minList = el('div', 'fb-time__col', { role: 'listbox', 'aria-label': 'Minute', 'data-lenis-prevent': true });
+  const merList = el('div', 'fb-time__col fb-time__col--mer', { role: 'listbox', 'aria-label': 'AM or PM' });
+  cols.append(hourList, minList, merList);
+  pop.appendChild(cols);
+
+  let h12 = null, mm = null, mer = 'AM';
+
+  const emit = () => {
+    if (h12 == null || mm == null) return;
+    const h24 = (h12 % 12) + (mer === 'PM' ? 12 : 0);
+    hidden.value = `${pad2(h24)}:${pad2(mm)}`;
+    text.textContent = `${pad2(h12)}:${pad2(mm)} ${mer}`;
+    text.classList.add('is-set');
+    hidden.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  const mark = (list, value) => list.querySelectorAll('button').forEach((b) => {
+    const on = b.dataset.v === String(value);
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-selected', String(on));
+  });
+
+  for (let h = 1; h <= 12; h++) {
+    const b = el('button', 'fb-time__opt', { type: 'button', role: 'option', 'aria-selected': 'false' });
+    b.textContent = pad2(h); b.dataset.v = h;
+    b.addEventListener('click', () => { h12 = h; mark(hourList, h); emit(); });
+    hourList.appendChild(b);
+  }
+  for (let m = 0; m < 60; m += 5) {
+    const b = el('button', 'fb-time__opt', { type: 'button', role: 'option', 'aria-selected': 'false' });
+    b.textContent = pad2(m); b.dataset.v = m;
+    b.addEventListener('click', () => { mm = m; mark(minList, m); emit(); });
+    minList.appendChild(b);
+  }
+  ['AM', 'PM'].forEach((x) => {
+    const b = el('button', 'fb-time__opt', { type: 'button', role: 'option', 'aria-selected': String(x === 'AM') });
+    b.textContent = x; b.dataset.v = x;
+    if (x === 'AM') b.classList.add('is-on');
+    b.addEventListener('click', () => { mer = x; mark(merList, x); emit(); });
+    merList.appendChild(b);
+  });
+
+  const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  btn.addEventListener('click', () => {
+    pop.hidden = !pop.hidden;
+    btn.setAttribute('aria-expanded', String(!pop.hidden));
+  });
+  dismissable(wrap, close, () => !pop.hidden);
+
+  wrap.append(btn, hidden, pop);
   return wrap;
 }
 
@@ -1039,6 +1233,18 @@ function buildField(f, idx) {
       break;
     }
 
+    case 'date':
+      input = datePicker({ name: f.key, id, label: f.label, required: !!rules.required });
+      break;
+
+    case 'datetime-local':
+      input = datePicker({ name: f.key, id, label: f.label, withTime: true, required: !!rules.required });
+      break;
+
+    case 'time':
+      input = timePicker({ name: f.key, id, label: f.label, required: !!rules.required });
+      break;
+
     case 'computed': {
       input = el('div', 'fb-computed');
       input.dataset.computed = f.key;
@@ -1062,7 +1268,8 @@ function buildField(f, idx) {
      composite control keeps its value in a hidden input and is checked in
      customErrors instead — pushing minLength onto one cell of a six-box code
      is both wrong and, since it exceeds that cell's maxlength, fatal. */
-  const COMPOSITE = ['otp', 'tree', 'lookup', 'multiselect', 'signature', 'richtext', 'lineitems', 'rating'];
+  const COMPOSITE = ['otp', 'tree', 'lookup', 'multiselect', 'signature', 'richtext', 'lineitems',
+                     'rating', 'select', 'date', 'time', 'datetime-local'];
   const target = COMPOSITE.includes(f.type) ? null
                : input.matches('input, select, textarea') ? input
                : input.querySelector('input:not([type=hidden]), select, textarea');
