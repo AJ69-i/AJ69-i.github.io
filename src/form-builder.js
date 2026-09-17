@@ -175,6 +175,23 @@ const NO_RULES = {
   computed: 'Never typed into, so there is nothing to reject.',
 };
 
+/* ---------- the other half of a field's job ----------
+   A field config does not only draw an input. Mark it searchable and the
+   list view has to offer a way to filter on it — and a filter is rarely the
+   same control as the input. A text box becomes "contains". A number becomes
+   a pair of bounds. A date becomes a span. A select becomes "any of".
+   Same config, two renderings; that is the whole point of config-driven. */
+const FILTER_KIND = {
+  text: 'contains', textarea: 'contains', email: 'contains', url: 'contains',
+  tel: 'contains', richtext: 'contains', lookup: 'contains',
+  number: 'range', currency: 'range', range: 'range', rating: 'range',
+  date: 'dateRange', 'datetime-local': 'dateRange', time: 'dateRange',
+  select: 'anyOf', radio: 'anyOf', multiselect: 'anyOf', checkbox: 'anyOf',
+  toggle: 'bool',
+};
+/* password, file, signature, color, lineitems and computed are absent on
+   purpose — there is nothing sensible to filter a list by. */
+
 const WIDTHS = ['w-25', 'w-33', 'w-50', 'w-75', 'w-100'];
 
 /* Some controls are the wrong shape for half a row; that is a property of
@@ -887,6 +904,101 @@ function customErrors(form, fields) {
   return out;
 }
 
+/* Builds the filter bar the list view would get from this same schema, and
+   the query object those filters produce. Nothing here knows a field type —
+   it asks FILTER_KIND what shape the filter takes. */
+export function renderFilters(schema, mount, queryMount) {
+  const fields = ((schema && schema.fields) || []).filter((f) => f.searchable && FILTER_KIND[f.type]);
+  mount.innerHTML = '';
+  if (queryMount) queryMount.textContent = '';
+
+  if (!fields.length) {
+    const p = el('p', 'fb-empty');
+    p.textContent = 'Mark a control searchable and the filters it would add to the list view appear here.';
+    mount.appendChild(p);
+    return;
+  }
+
+  const readQuery = () => {
+    const q = {};
+    fields.forEach((f) => {
+      const kind = FILTER_KIND[f.type];
+      const box = mount.querySelector(`[data-filter="${f.key}"]`);
+      if (!box) return;
+      const val = (sel) => { const n = box.querySelector(sel); return n ? n.value.trim() : ''; };
+
+      if (kind === 'contains' && val('input')) q[f.key] = { contains: val('input') };
+      if (kind === 'range') {
+        const lo = val('[data-lo]'), hi = val('[data-hi]');
+        if (lo || hi) q[f.key] = { ...(lo && { min: Number(lo) }), ...(hi && { max: Number(hi) }) };
+      }
+      if (kind === 'dateRange') {
+        const lo = val('[data-lo]'), hi = val('[data-hi]');
+        if (lo || hi) q[f.key] = { ...(lo && { from: lo }), ...(hi && { to: hi }) };
+      }
+      if (kind === 'anyOf') {
+        const picked = [...box.querySelectorAll('.fb-tag[aria-pressed="true"]')].map((b) => b.textContent);
+        if (picked.length) q[f.key] = { anyOf: picked };
+      }
+      if (kind === 'bool' && val('select')) q[f.key] = { equals: val('select') === 'yes' };
+    });
+    if (queryMount) {
+      queryMount.textContent = Object.keys(q).length
+        ? JSON.stringify(q, null, 2)
+        : '// no filter applied yet';
+    }
+  };
+
+  fields.forEach((f) => {
+    const kind = FILTER_KIND[f.type];
+    const box = el('div', 'fb-filter');
+    box.dataset.filter = f.key;
+
+    const lab = el('span', 'fb-filter__label');
+    lab.textContent = f.label || f.key;
+    const kindTag = el('em', 'fb-filter__kind');
+    kindTag.textContent = kind === 'dateRange' ? 'from – to'
+      : kind === 'range' ? 'min – max'
+      : kind === 'anyOf' ? 'any of'
+      : kind === 'bool' ? 'yes / no' : 'contains';
+    lab.appendChild(kindTag);
+    box.appendChild(lab);
+
+    const row = el('div', 'fb-filter__row');
+    if (kind === 'contains') {
+      const i = el('input', 'fb-input fb-input--sm', { type: 'search', placeholder: 'contains…' });
+      row.appendChild(i);
+    } else if (kind === 'range' || kind === 'dateRange') {
+      const t = kind === 'range' ? 'number' : (f.type === 'time' ? 'time' : 'date');
+      const lo = el('input', 'fb-input fb-input--sm', { type: t, 'data-lo': true, 'aria-label': 'from' });
+      const hi = el('input', 'fb-input fb-input--sm', { type: t, 'data-hi': true, 'aria-label': 'to' });
+      const dash = el('span', 'fb-filter__dash'); dash.textContent = '–';
+      row.append(lo, dash, hi);
+    } else if (kind === 'anyOf') {
+      (f.options || []).forEach((o) => {
+        const b = el('button', 'fb-tag', { type: 'button', 'aria-pressed': 'false' });
+        b.textContent = o;
+        b.addEventListener('click', () => {
+          b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
+          readQuery();
+        });
+        row.appendChild(b);
+      });
+    } else if (kind === 'bool') {
+      const sel = el('select', 'fb-input fb-input--sm', { 'aria-label': f.label });
+      [['', 'Any'], ['yes', 'Yes'], ['no', 'No']].forEach(([v, t]) => {
+        const o = el('option', null, { value: v }); o.textContent = t; sel.appendChild(o);
+      });
+      row.appendChild(sel);
+    }
+    box.appendChild(row);
+    mount.appendChild(box);
+  });
+
+  mount.addEventListener('input', readQuery);
+  readQuery();
+}
+
 export function renderForm(schema, mount) {
   mount.innerHTML = '';
   const fields = (schema && schema.fields) || [];
@@ -959,6 +1071,9 @@ export function initFormBuilder() {
   const addBtn  = document.querySelector('[data-fb-add]');
   const widthEl = document.querySelector('[data-fb-width]');
   const rulesEl = document.querySelector('[data-fb-rules]');
+  const optsEl  = document.querySelector('[data-fb-opts]');
+  const filtEl  = document.querySelector('[data-fb-filters]');
+  const queryEl = document.querySelector('[data-fb-query]');
   const preview = document.querySelector('[data-fb-preview]');
   const schemaEl= document.querySelector('[data-fb-schema]');
   const resetBtn= document.querySelector('[data-fb-reset]');
@@ -979,6 +1094,23 @@ export function initFormBuilder() {
   let seq = 0;
   let width = null;                 // null = whatever the type calls natural
   let rules = {};                   // the rules the visitor has switched on
+  let searchable = false;           // does the list view get a filter for this?
+
+  const paintOpts = () => {
+    if (!optsEl) return;
+    optsEl.innerHTML = '';
+    const kind = FILTER_KIND[active.type];
+    if (!kind) {
+      const note = el('p', 'fb-rules__none');
+      note.textContent = 'Nothing sensible to filter a list by on this type.';
+      optsEl.appendChild(note);
+      return;
+    }
+    const b = el('button', 'fb-rule', { type: 'button', 'aria-pressed': String(searchable) });
+    b.textContent = `searchable — ${kind === 'dateRange' ? 'from – to' : kind === 'range' ? 'min – max' : kind === 'anyOf' ? 'any of' : kind === 'bool' ? 'yes / no' : 'contains'}`;
+    b.addEventListener('click', () => { searchable = !searchable; paintOpts(); });
+    optsEl.appendChild(b);
+  };
 
   const paintWidth = () => {
     if (!widthEl) return;
@@ -1051,10 +1183,12 @@ export function initFormBuilder() {
     active = c;
     width = null;                                        // back to the type's own shape
     rules = c.sample.required ? { required: true } : {}; // rules belong to a type, not to the session
+    searchable = false;
     gallery.querySelectorAll('.fb-chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.type === c.type)));
     paintPreview();
     paintWidth();
     paintRules();
+    paintOpts();
   };
 
   /* 25 chips in one wall is a wall. Grouped, it reads as a palette. */
@@ -1082,19 +1216,23 @@ export function initFormBuilder() {
     const f = { ...active.sample, key: `${active.sample.key}_${seq}` };
     delete f.required;                       // required is a rule now, like every other constraint
     f.width = width || NATURAL_WIDTH[active.type] || 'w-50';
+    if (searchable && FILTER_KIND[active.type]) f.searchable = true;
     if (Object.keys(rules).length) f.rules = { ...rules };
     schema.fields.push(f);
     renderForm(schema, preview);
+    if (filtEl) renderFilters(schema, filtEl, queryEl);
     paintSchema(schema.fields.length - 1);
   });
 
   resetBtn && resetBtn.addEventListener('click', () => {
     schema = START(); seq = 0;
     renderForm(schema, preview);
+    if (filtEl) renderFilters(schema, filtEl, queryEl);
     paintSchema();
   });
 
   select(CONTROLS[0]);
   renderForm(schema, preview);
+  if (filtEl) renderFilters(schema, filtEl, queryEl);
   paintSchema();
 }
