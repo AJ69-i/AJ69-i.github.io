@@ -624,3 +624,11 @@ textarea.fb-input { resize: vertical; min-height: 78px; }
 .fb-filter .fb-tag { font-size: 0.74rem; padding: 0.26rem 0.6rem; }
 
 .fb__query { margin: 1.1rem 0 0; padding: 0.85rem 1rem; background: var(--bg); border: 1px solid var(--mk-line); border-radius: 9px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.74rem; line-height: 1.7; white-space: pre-wrap; word-break: break-word; max-height: 190px; overflow: auto; overscroll-behavior: contain; }
+
+/* ---------- section headings in the rendered form ---------- */
+.fb-section { display: flex; align-items: center; gap: 0.8rem; margin: 1.6rem 0 0.9rem; font-family: var(--font-display); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+.fb-section:first-child { margin-top: 0; }
+.fb-section::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--line-soft); }
+.fb-sect { display: inline-flex; flex-wrap: wrap; gap: 0.35rem; margin-right: 0.5rem; padding-right: 0.65rem; border-right: 1px solid var(--line); }
+.fb-rule--sect[aria-pressed="true"]::before { content: "§ "; }
+.fb-help { margin: 0; font-size: 0.74rem; line-height: 1.5; color: var(--muted-2); }

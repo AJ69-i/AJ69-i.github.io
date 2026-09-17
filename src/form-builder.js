@@ -192,6 +192,36 @@ const FILTER_KIND = {
 /* password, file, signature, color, lineitems and computed are absent on
    purpose — there is nothing sensible to filter a list by. */
 
+/* Help is written for whoever fills the form in, not for whoever builds it —
+   so it is a sentence about this field, not a description of the type. */
+const HELP = {
+  text: 'Exactly as it appears on the contract.',
+  textarea: 'Anything the delivery team should know before they start.',
+  email: 'Invoices and the licence key are sent here.',
+  url: 'Include https:// — we check the domain resolves.',
+  tel: 'Only used if the delivery team needs to reach you.',
+  password: 'Rotated every 90 days; you can change it later.',
+  number: 'Named users, not concurrent sessions.',
+  currency: 'Excluding VAT.',
+  range: 'Drag to the nearest five per cent.',
+  rating: 'One is poor, five is excellent.',
+  select: 'You can change plan at any renewal.',
+  multiselect: 'Pick every tag that applies.',
+  checkbox: 'Modules can be added later without a new contract.',
+  radio: 'Annual billing carries a discount.',
+  toggle: 'Inactive records stay searchable but are hidden by default.',
+  date: 'The first day users will be able to sign in.',
+  time: 'Local time at the customer site.',
+  'datetime-local': 'We hold the slot for 48 hours.',
+  file: 'The signed copy, not the draft.',
+  richtext: 'These terms appear on every invoice.',
+  signature: 'Use a mouse, a trackpad or your finger.',
+  color: 'Used on the portal header and on outgoing email.',
+  lookup: 'Start typing a name or a customer code.',
+  lineitems: 'One row per item — the total updates as you type.',
+  computed: 'Calculated for you; there is nothing to fill in.',
+};
+
 const WIDTHS = ['w-25', 'w-33', 'w-50', 'w-75', 'w-100'];
 
 /* Some controls are the wrong shape for half a row; that is a property of
@@ -819,6 +849,14 @@ function buildField(f, idx) {
   }
 
   wrap.appendChild(input);
+
+  if (f.help) {
+    const h = el('p', 'fb-help', { id: `${id}-help` });
+    h.textContent = f.help;
+    wrap.appendChild(h);
+    if (target) target.setAttribute('aria-describedby', `${id}-help`);
+  }
+
   const err = el('p', 'fb-error', { 'aria-live': 'polite' });
   wrap.appendChild(err);
 
@@ -1011,9 +1049,27 @@ export function renderForm(schema, mount) {
   }
 
   const form = el('form', 'fb-form');
-  const grid = el('div', 'fb-grid');
-  fields.forEach((f, i) => grid.appendChild(buildField(f, i)));
-  form.appendChild(grid);
+
+  /* A section is not a container in the schema — it is a label a field
+     carries. Consecutive fields naming the same section share one heading,
+     which means reordering fields reorganises the form with no nesting to
+     keep in sync. */
+  let grid = null;
+  let current = Symbol('none');
+  fields.forEach((f, i) => {
+    const section = f.section || null;
+    if (!grid || section !== current) {
+      if (section) {
+        const h = el('p', 'fb-section');
+        h.textContent = section;
+        form.appendChild(h);
+      }
+      grid = el('div', 'fb-grid');
+      form.appendChild(grid);
+      current = section;
+    }
+    grid.appendChild(buildField(f, i));
+  });
 
   const actions = el('div', 'fb-actions');
   const submit = el('button', 'fb-submit', { type: 'submit' });
@@ -1095,21 +1151,41 @@ export function initFormBuilder() {
   let width = null;                 // null = whatever the type calls natural
   let rules = {};                   // the rules the visitor has switched on
   let searchable = false;           // does the list view get a filter for this?
+  let section = null;               // the heading this field sits under
+  let help = false;                 // show a line of guidance under the control
+
+  const SECTIONS = [null, 'Company', 'Contact', 'Commercial terms'];
 
   const paintOpts = () => {
     if (!optsEl) return;
     optsEl.innerHTML = '';
+
+    const secWrap = el('span', 'fb-sect');
+    SECTIONS.forEach((name) => {
+      const b = el('button', 'fb-rule fb-rule--sect', { type: 'button', 'aria-pressed': String(section === name) });
+      b.textContent = name || 'no section';
+      b.addEventListener('click', () => { section = name; paintOpts(); });
+      secWrap.appendChild(b);
+    });
+    optsEl.appendChild(secWrap);
+
     const kind = FILTER_KIND[active.type];
     if (!kind) {
-      const note = el('p', 'fb-rules__none');
-      note.textContent = 'Nothing sensible to filter a list by on this type.';
+      const note = el('span', 'fb-rules__none');
+      note.textContent = 'Not filterable.';
       optsEl.appendChild(note);
-      return;
     }
-    const b = el('button', 'fb-rule', { type: 'button', 'aria-pressed': String(searchable) });
-    b.textContent = `searchable — ${kind === 'dateRange' ? 'from – to' : kind === 'range' ? 'min – max' : kind === 'anyOf' ? 'any of' : kind === 'bool' ? 'yes / no' : 'contains'}`;
-    b.addEventListener('click', () => { searchable = !searchable; paintOpts(); });
-    optsEl.appendChild(b);
+    if (kind) {
+      const b = el('button', 'fb-rule', { type: 'button', 'aria-pressed': String(searchable) });
+      b.textContent = `searchable — ${kind === 'dateRange' ? 'from – to' : kind === 'range' ? 'min – max' : kind === 'anyOf' ? 'any of' : kind === 'bool' ? 'yes / no' : 'contains'}`;
+      b.addEventListener('click', () => { searchable = !searchable; paintOpts(); });
+      optsEl.appendChild(b);
+    }
+
+    const hb = el('button', 'fb-rule', { type: 'button', 'aria-pressed': String(help) });
+    hb.textContent = 'help text';
+    hb.addEventListener('click', () => { help = !help; paintOpts(); });
+    optsEl.appendChild(hb);
   };
 
   const paintWidth = () => {
@@ -1184,6 +1260,8 @@ export function initFormBuilder() {
     width = null;                                        // back to the type's own shape
     rules = c.sample.required ? { required: true } : {}; // rules belong to a type, not to the session
     searchable = false;
+    help = false;
+    // section deliberately persists: you group several fields in a row
     gallery.querySelectorAll('.fb-chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.type === c.type)));
     paintPreview();
     paintWidth();
@@ -1216,6 +1294,8 @@ export function initFormBuilder() {
     const f = { ...active.sample, key: `${active.sample.key}_${seq}` };
     delete f.required;                       // required is a rule now, like every other constraint
     f.width = width || NATURAL_WIDTH[active.type] || 'w-50';
+    if (section) f.section = section;
+    if (help && HELP[active.type]) f.help = HELP[active.type];
     if (searchable && FILTER_KIND[active.type]) f.searchable = true;
     if (Object.keys(rules).length) f.rules = { ...rules };
     schema.fields.push(f);
