@@ -510,7 +510,7 @@ strong { font-weight: 600; color: var(--text); }
 .mk-plus::before, .mk-plus::after { content: ""; position: absolute; inset: 50% 0 auto 0; height: 1.5px; background: var(--accent); }
 .mk-plus::after { transform: rotate(90deg); }
 
-.mk-box--ro { background: rgba(243,240,234,0.03); border-style: dashed; }
+.mk-box--ro { border-style: dashed; }   /* same ground as every other box; the dashes carry the read-only meaning */
 .mk-fx { font-size: 0.86rem; font-weight: 600; color: var(--accent); flex-shrink: 0; }
 .mk-expr { display: flex; align-items: center; gap: 0.45rem; padding: 0.4rem 0.6rem; border-radius: 7px; background: rgba(243,240,234,0.03); border: 1px solid var(--line-soft); width: fit-content; }
 .mk-op { font-size: 0.74rem; color: var(--muted-2); }
@@ -574,7 +574,7 @@ strong { font-weight: 600; color: var(--text); }
 .fb-items__count { font-size: 0.72rem; color: var(--muted-2); }
 
 .fb-computed { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
-.fb-input--ro { flex: 1 1 140px; min-width: 0; background: rgba(243,240,234,0.03); border-style: dashed; color: var(--accent); font-variant-numeric: tabular-nums; cursor: default; }
+.fb-input--ro { flex: 1 1 140px; min-width: 0; border-style: dashed; color: var(--accent); font-variant-numeric: tabular-nums; cursor: default; }
 .fb-computed__expr { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.72rem; color: var(--muted-2); background: rgba(243,240,234,0.04); border: 1px solid var(--line-soft); border-radius: 6px; padding: 0.24rem 0.5rem; white-space: nowrap; }
 
 @media (max-width: 520px) {
