@@ -119,6 +119,18 @@ export const CONTROLS = [
       { key: 'price', label: 'Unit price', type: 'number', value: 0 },
     ] } },
 
+  { type: 'otp', label: 'One-time Code', group: 'Text', icon: svg('<rect x="2" y="7" width="3.6" height="6" rx="1"/><rect x="7" y="7" width="3.6" height="6" rx="1"/><rect x="12" y="7" width="3.6" height="6" rx="1"/><path d="M17.6 10H18"/>'),
+    hint: 'A code split across boxes, so a paste fills them all and a typo is obvious.',
+    sample: { key: 'code', label: 'Verification code', type: 'otp', length: 6 } },
+
+  { type: 'barcode', label: 'Barcode', group: 'Text', icon: svg('<path d="M3 4v12M6 4v12M8.5 4v12M11.5 4v9M14 4v12M17 4v12"/>'),
+    hint: 'Scanner-first: the field takes a scan or a typed code and normalises both.',
+    sample: { key: 'sku', label: 'SKU / Barcode', type: 'barcode', placeholder: 'Scan or type' } },
+
+  { type: 'tree', label: 'Tree Select', group: 'Business', icon: svg('<rect x="3" y="3" width="5" height="4" rx="1"/><rect x="12" y="8" width="5" height="4" rx="1"/><rect x="12" y="14" width="5" height="3.5" rx="1"/><path d="M5.5 7v7.5h6.5M5.5 10h6.5"/>'),
+    hint: 'One node out of a hierarchy — categories, cost centres, an org chart.',
+    sample: { key: 'category', label: 'Category', type: 'tree', ref: 'categories' } },
+
   { type: 'computed', label: 'Computed', group: 'Business', icon: svg('<rect x="3" y="3" width="14" height="14" rx="3"/><path d="M6.5 8h7M6.5 12h7"/>'),
     hint: 'Never typed into — re-evaluated from the other fields every time one changes.',
     sample: { key: 'total', label: 'Order total', type: 'computed', expr: 'sum(qty * price)', format: 'currency' } },
@@ -161,6 +173,9 @@ const RULES = {
   richtext:  [rule('required', 'required', true), rule('maxLength', 'max length', 2000)],
   signature: [rule('required', 'required', true)],
   color:     [],
+  otp:       [rule('required', 'required', true), rule('minLength', 'full length', 6)],
+  barcode:   [rule('required', 'required', true), rule('pattern', 'alphanumeric', '^[A-Za-z0-9-]{4,}$')],
+  tree:      [rule('required', 'required', true), rule('leafOnly', 'leaf nodes only', true)],
   lookup:    [rule('required', 'required', true)],
   lineitems: [rule('minRows', 'min rows', 2)],
   computed:  [],
@@ -183,7 +198,7 @@ const NO_RULES = {
    Same config, two renderings; that is the whole point of config-driven. */
 const FILTER_KIND = {
   text: 'contains', textarea: 'contains', email: 'contains', url: 'contains',
-  tel: 'contains', richtext: 'contains', lookup: 'contains',
+  tel: 'contains', richtext: 'contains', lookup: 'contains', barcode: 'contains', tree: 'contains',
   number: 'range', currency: 'range', range: 'range', rating: 'range',
   date: 'dateRange', 'datetime-local': 'dateRange', time: 'dateRange',
   select: 'anyOf', radio: 'anyOf', multiselect: 'anyOf', checkbox: 'anyOf',
@@ -217,6 +232,9 @@ const HELP = {
   richtext: 'These terms appear on every invoice.',
   signature: 'Use a mouse, a trackpad or your finger.',
   color: 'Used on the portal header and on outgoing email.',
+  otp: 'Six digits, valid for ten minutes.',
+  barcode: 'Scan it, or type the code printed under the bars.',
+  tree: 'Pick the most specific node that applies.',
   lookup: 'Start typing a name or a customer code.',
   lineitems: 'One row per item — the total updates as you type.',
   computed: 'Calculated for you; there is nothing to fill in.',
@@ -229,6 +247,7 @@ const WIDTHS = ['w-25', 'w-33', 'w-50', 'w-75', 'w-100'];
 const NATURAL_WIDTH = {
   textarea: 'w-100', checkbox: 'w-100', radio: 'w-100', multiselect: 'w-100',
   richtext: 'w-100', signature: 'w-100', lineitems: 'w-100', lookup: 'w-100', file: 'w-100',
+  tree: 'w-100', otp: 'w-50', barcode: 'w-50',
 };
 
 /* The group order the palette renders in. */
@@ -236,6 +255,21 @@ export const GROUPS = ['Text', 'Numbers', 'Choice', 'Date & time', 'Files & rich
 
 /* A lookup points at a module, not at rows. The rows live here, the way they
    would live in a table the engine has never heard of. */
+const TREE = [
+  { id: 'HW', label: 'Hardware', children: [
+    { id: 'HW-SRV', label: 'Servers', children: [
+      { id: 'HW-SRV-RACK', label: 'Rack units' },
+      { id: 'HW-SRV-BLADE', label: 'Blade chassis' },
+    ]},
+    { id: 'HW-NET', label: 'Networking' },
+  ]},
+  { id: 'SW', label: 'Software', children: [
+    { id: 'SW-LIC', label: 'Licences' },
+    { id: 'SW-SUB', label: 'Subscriptions' },
+  ]},
+  { id: 'SVC', label: 'Services' },
+];
+
 const DATASETS = {
   customers: [
     { id: 'CUS-1042', name: 'Acme Trading' },
@@ -394,6 +428,23 @@ const MOCKS = {
 
   computed: () => `<div class="mk-box mk-box--ro"><span class="mk-fx">=</span>${bar('28%')}</div>
                    <div class="mk-expr">${bar('18px')}<span class="mk-op">×</span>${bar('24px')}</div>`,
+
+  otp:      () => `<div class="mk-otp">${Array.from({ length: 6 }, (_, i) =>
+                     `<span class="mk-otp__cell${i < 3 ? ' is-on' : ''}" style="--t:${(i / 5).toFixed(3)}">${
+                       i < 3 ? '<i class="mk-dot"></i>' : ''}</span>`).join('')}</div>`,
+
+  barcode:  () => `<div class="mk-box">${mkIcon('<path d="M3 4v12M6 4v12M8.5 4v12M11.5 4v9M14 4v12M17 4v12"/>')}${bar('34%')}</div>
+                   <div class="mk-bars">${[3, 1, 2, 1, 1, 3, 1, 2, 2, 1, 3, 1, 1, 2, 1, 3, 2, 1, 1, 2]
+                     .map((w, i) => `<i style="--w:${w}px;--t:${(i / 19).toFixed(3)}"></i>`).join('')}</div>`,
+
+  tree:     () => `<div class="mk-box">${bar('30%')}<span class="mk-chev"></span></div>
+                   <div class="mk-tree">
+                     <span class="mk-node" style="--d:0"><i class="mk-twist"></i>${bar('62px')}</span>
+                     <span class="mk-node" style="--d:1"><i class="mk-twist"></i>${bar('50px')}</span>
+                     <span class="mk-node is-on" style="--d:2"><i class="mk-leaf"></i>${bar('68px')}</span>
+                     <span class="mk-node" style="--d:2"><i class="mk-leaf"></i>${bar('54px')}</span>
+                     <span class="mk-node" style="--d:1"><i class="mk-leaf"></i>${bar('44px')}</span>
+                   </div>`,
 };
 
 export function renderMock(control, mount) {
@@ -814,6 +865,105 @@ function buildField(f, idx) {
       break;
     }
 
+    case 'otp': {
+      const n = f.length || 6;
+      input = el('div', 'fb-otp', { role: 'group', 'aria-label': f.label || 'One-time code' });
+      const hidden = el('input', null, { type: 'hidden', name: f.key });
+      const cells = [];
+      const sync = () => { hidden.value = cells.map((c) => c.value).join(''); };
+
+      for (let i = 0; i < n; i++) {
+        const c = el('input', 'fb-otp__cell', {
+          type: 'text', inputmode: 'numeric', maxlength: 1, 'aria-label': `Digit ${i + 1} of ${n}`,
+        });
+        if (i === 0) c.id = id;
+        c.addEventListener('input', () => {
+          c.value = c.value.replace(/\D/g, '').slice(0, 1);
+          if (c.value && cells[i + 1]) cells[i + 1].focus();
+          sync();
+          hidden.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        c.addEventListener('keydown', (e) => {
+          if (e.key === 'Backspace' && !c.value && cells[i - 1]) cells[i - 1].focus();
+          if (e.key === 'ArrowLeft' && cells[i - 1]) cells[i - 1].focus();
+          if (e.key === 'ArrowRight' && cells[i + 1]) cells[i + 1].focus();
+        });
+        // one paste fills the row, which is how people actually enter these
+        c.addEventListener('paste', (e) => {
+          e.preventDefault();
+          const digits = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, n - i);
+          [...digits].forEach((d, k) => { if (cells[i + k]) cells[i + k].value = d; });
+          const last = Math.min(i + digits.length, n - 1);
+          cells[last].focus();
+          sync();
+          hidden.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        cells.push(c);
+        input.appendChild(c);
+      }
+      input.appendChild(hidden);
+      break;
+    }
+
+    case 'barcode': {
+      input = el('div', 'fb-barcode');
+      const box = el('input', 'fb-input', { id, type: 'text', name: f.key,
+        placeholder: f.placeholder || 'Scan or type', autocomplete: 'off', spellcheck: 'false' });
+      const strip = el('div', 'fb-barcode__strip', { 'aria-hidden': 'true' });
+
+      // a real symbology would encode this; here the bars are drawn from the
+      // characters so the strip changes with the value instead of being decor
+      const draw = () => {
+        const v = box.value.trim();
+        strip.innerHTML = '';
+        if (!v) { strip.classList.remove('is-on'); return; }
+        strip.classList.add('is-on');
+        [...v].slice(0, 22).forEach((ch) => {
+          const code = ch.charCodeAt(0);
+          [1, 2, 3].forEach((k) => {
+            const i2 = el('i');
+            i2.style.setProperty('--w', `${1 + ((code >> k) & 3)}px`);
+            i2.style.opacity = 0.35 + (((code >> (k + 2)) & 3) / 6);
+            strip.appendChild(i2);
+          });
+        });
+      };
+      box.addEventListener('input', () => { box.value = box.value.toUpperCase(); draw(); });
+      input.append(box, strip);
+      draw();
+      break;
+    }
+
+    case 'tree': {
+      input = el('div', 'fb-tree');
+      const hidden = el('input', null, { type: 'hidden', name: f.key });
+      const list = el('div', 'fb-tree__list', { role: 'tree' });
+
+      const walk = (nodes, depth) => nodes.forEach((n) => {
+        const leaf = !n.children || !n.children.length;
+        const row = el('button', 'fb-tree__node', {
+          type: 'button', role: 'treeitem', 'aria-selected': 'false',
+        });
+        row.style.setProperty('--d', depth);
+        row.dataset.id = n.id;
+        row.dataset.leaf = String(leaf);
+        row.innerHTML = `<i class="${leaf ? 'fb-tree__leaf' : 'fb-tree__twist'}"></i>`;
+        row.append(document.createTextNode(n.label));
+        row.addEventListener('click', () => {
+          list.querySelectorAll('.fb-tree__node').forEach((x) => x.setAttribute('aria-selected', 'false'));
+          row.setAttribute('aria-selected', 'true');
+          hidden.value = n.id;
+          hidden.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        list.appendChild(row);
+        if (!leaf) walk(n.children.map((c) => ({ ...c, parent: n.id })), depth + 1);
+      });
+
+      walk(TREE, 0);
+      input.append(list, hidden);
+      break;
+    }
+
     case 'computed': {
       input = el('div', 'fb-computed');
       input.dataset.computed = f.key;
@@ -833,19 +983,27 @@ function buildField(f, idx) {
       if (f.value != null) input.value = f.value;
   }
 
-  // Native constraints where the browser already does the work well.
-  const target = input.matches('input, select, textarea') ? input
+  /* Native constraints, but only where a single input *is* the value. A
+     composite control keeps its value in a hidden input and is checked in
+     customErrors instead — pushing minLength onto one cell of a six-box code
+     is both wrong and, since it exceeds that cell's maxlength, fatal. */
+  const COMPOSITE = ['otp', 'tree', 'lookup', 'multiselect', 'signature', 'richtext', 'lineitems', 'rating'];
+  const target = COMPOSITE.includes(f.type) ? null
+               : input.matches('input, select, textarea') ? input
                : input.querySelector('input:not([type=hidden]), select, textarea');
   if (target) {
-    if (rules.minLength) target.minLength = rules.minLength;
-    if (rules.maxLength) target.maxLength = rules.maxLength;
-    if (rules.min != null && target.type !== 'text') target.min = rules.min;
-    if (rules.max != null && target.type !== 'text') target.max = rules.max;
+    // one bad pairing must never be able to take the whole form down with it
+    const set = (fn) => { try { fn(); } catch (err) { console.warn('rule skipped:', err.message); } };
+    if (rules.maxLength) set(() => { target.maxLength = rules.maxLength; });
+    if (rules.minLength && !(target.maxLength > 0 && rules.minLength > target.maxLength))
+      set(() => { target.minLength = rules.minLength; });
+    if (rules.min != null && target.type !== 'text') set(() => { target.min = rules.min; });
+    if (rules.max != null && target.type !== 'text') set(() => { target.max = rules.max; });
     if (rules.pattern && ['text', 'tel', 'email', 'url', 'password', 'search'].includes(target.type)) {
-      target.pattern = rules.pattern;
+      set(() => { target.pattern = rules.pattern; });
       target.title = 'Must match the pattern set in the schema';
     }
-    if (rules.accept && target.type === 'file') target.accept = rules.accept;
+    if (rules.accept && target.type === 'file') set(() => { target.accept = rules.accept; });
   }
 
   wrap.appendChild(input);
@@ -854,7 +1012,8 @@ function buildField(f, idx) {
     const h = el('p', 'fb-help', { id: `${id}-help` });
     h.textContent = f.help;
     wrap.appendChild(h);
-    if (target) target.setAttribute('aria-describedby', `${id}-help`);
+    const described = document.getElementById(id) || target;
+    if (described) described.setAttribute('aria-describedby', `${id}-help`);
   }
 
   const err = el('p', 'fb-error', { 'aria-live': 'polite' });
@@ -894,6 +1053,10 @@ function readValue(form, f) {
     }
     case 'computed':
       return Number(node.dataset.value || 0);
+    case 'tree': {
+      const picked = node.parentElement.querySelector('[aria-selected="true"]');
+      return node.value ? { id: node.value, label: picked ? picked.textContent : '' } : null;
+    }
     case 'number':
     case 'range':
     case 'rating':
@@ -916,8 +1079,16 @@ function customErrors(form, fields) {
                   (f.type === 'rating' && !v);
 
     // hidden inputs are barred from constraint validation, so these ask here
-    if (r.required && ['lookup', 'signature', 'multiselect', 'rating', 'richtext'].includes(f.type) && empty)
+    if (r.required && ['lookup', 'signature', 'multiselect', 'rating', 'richtext', 'otp', 'tree'].includes(f.type) && empty)
       out.push([f.key, 'Required.']);
+
+    if (f.type === 'otp' && r.minLength && v && String(v).length < r.minLength)
+      out.push([f.key, `All ${r.minLength} digits.`]);
+
+    if (f.type === 'tree' && r.leafOnly && v && v.id) {
+      const node = form.querySelector(`.fb-tree__node[data-id="${v.id}"]`);
+      if (node && node.dataset.leaf !== 'true') out.push([f.key, 'Pick a node with no children.']);
+    }
 
     if (r.minSelected && (!Array.isArray(v) || v.length < r.minSelected))
       out.push([f.key, `Choose at least ${r.minSelected}.`]);
