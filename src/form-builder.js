@@ -26,6 +26,18 @@ const COUNTRIES = [
   { code: 'US', name: 'United States',        dial: '+1',   currency: 'USD' },
 ];
 
+/* A quantity is a number and the unit it happened to be entered in. The pair
+   converts to one base unit on the way out — which is the only reason a total
+   over rows in grams, kilos and tonnes can come out right. */
+const UNITS = {
+  mass:   { base: 'kg', list: [['g', 0.001], ['kg', 1], ['t', 1000]] },
+  count:  { base: 'pc', list: [['pc', 1], ['box', 12], ['pallet', 480]] },
+  length: { base: 'm',  list: [['mm', 0.001], ['cm', 0.01], ['m', 1], ['km', 1000]] },
+  volume: { base: 'L',  list: [['mL', 0.001], ['L', 1], ['m3', 1000]] },
+};
+const dimOf = (f) => UNITS[f && f.dimension] || UNITS.mass;
+const factorOf = (f, u) => { const hit = dimOf(f).list.find(([name]) => name === u); return hit ? hit[1] : 1; };
+
 /* The phone and money controls take their lists from the same table, which is
    the only reason a cascade can ever land: a driven value the target has
    never heard of is a cascade that quietly does nothing. */
@@ -66,6 +78,10 @@ export const CONTROLS = [
   { type: 'currency', label: 'Currency', group: 'Numbers', icon: svg('<rect x="2.5" y="5.5" width="15" height="9" rx="2"/><circle cx="10" cy="10" r="2.2"/><path d="M5.5 8.5v3M14.5 8.5v3"/>'),
     hint: 'Amount and currency travel together, so the number is never ambiguous.',
     sample: { key: 'budget', label: 'Budget', type: 'currency', currency: 'EGP', currencies: CURRENCIES, value: 25000 } },
+
+  { type: 'quantity', label: 'Quantity', group: 'Numbers', icon: svg('<path d="M10 2.8 17 6.2v7.6L10 17.2 3 13.8V6.2z"/><path d="M3 6.2 10 9.6l7-3.4M10 9.6v7.6"/>'),
+    hint: 'A number and the unit it was typed in. It converts to one base unit on the way out, so a bound is a bound and a total over mixed units is still a total.',
+    sample: { key: 'weight', label: 'Net weight', type: 'quantity', dimension: 'mass', uom: 'kg', value: 25 } },
 
   { type: 'range', label: 'Slider', group: 'Numbers', icon: svg('<path d="M3 10h14"/><circle cx="12.5" cy="10" r="2.8"/>'),
     hint: 'A bounded number where the range reads faster than the figure.',
@@ -155,7 +171,7 @@ export const CONTROLS = [
     hint: 'A schema inside a schema — rows the user adds, each one rendered by the same engine.',
     sample: { key: 'items', label: 'Line items', type: 'lineitems', fields: [
       { key: 'desc', label: 'Description', type: 'text' },
-      { key: 'qty', label: 'Qty', type: 'number', value: 1 },
+      { key: 'qty', label: 'Qty', type: 'quantity', dimension: 'count', uom: 'pc', value: 1 },
       { key: 'price', label: 'Unit price', type: 'number', value: 0 },
     ] } },
 
@@ -200,6 +216,7 @@ const RULES = {
   number:    [rule('required', 'required', true), rule('min', 'min', 1), rule('max', 'max', 500)],
   currency:  [rule('required', 'required', true), rule('min', 'min', 0), rule('max', 'max', 1000000)],
   percent:   [rule('required', 'required', true), rule('max', 'cap at 25 %', 25)],
+  quantity:  [rule('required', 'required', true), rule('min', 'min in base units', 1), rule('max', 'max in base units', 1000)],
   range:     [],
   rating:    [rule('required', 'required', true), rule('min', 'at least', 3)],
   select:    [rule('required', 'required', true)],
@@ -244,7 +261,7 @@ const FILTER_KIND = {
   text: 'contains', textarea: 'contains', email: 'contains', url: 'contains',
   tel: 'contains', richtext: 'contains', lookup: 'contains', barcode: 'contains', tree: 'contains',
   country: 'contains',
-  number: 'range', currency: 'range', range: 'range', rating: 'range', percent: 'range',
+  number: 'range', currency: 'range', range: 'range', rating: 'range', percent: 'range', quantity: 'range',
   date: 'dateRange', 'datetime-local': 'dateRange', time: 'dateRange', period: 'dateRange',
   duration: 'range',
   select: 'anyOf', radio: 'anyOf', multiselect: 'anyOf', checkbox: 'anyOf',
@@ -265,6 +282,7 @@ const HELP = {
   number: 'Named users, not concurrent sessions.',
   currency: 'Excluding VAT.',
   percent: 'Applied to the line total, before tax.',
+  quantity: 'Type it in whichever unit is on the label — it is stored in the base one.',
   range: 'Drag to the nearest five per cent.',
   rating: 'One is poor, five is excellent.',
   select: 'You can change plan at any renewal.',
@@ -443,6 +461,8 @@ const MOCKS = {
 
   tel:      () => `<div class="mk-box"><span class="mk-pill">+20 <i class="mk-caret"></i></span>${bar('40%')}</div>`,
   currency: () => `<div class="mk-box"><span class="mk-pill">EGP <i class="mk-caret"></i></span>${bar('30%')}</div>`,
+  quantity: () => `<div class="mk-box">${bar('26%')}<span class="mk-pill">kg <i class="mk-caret"></i></span></div>
+                   <div class="mk-scale"><span class="mk-scale__seg">g</span><span class="mk-scale__seg is-on">kg</span><span class="mk-scale__seg">t</span></div>`,
   percent:  () => `<div class="mk-box">${bar('24%')}<span class="mk-unit">%</span></div>
                    <div class="mk-scale"><span class="mk-scale__seg">0–100</span><span class="mk-scale__seg is-on">0–1</span></div>`,
   range:    () => `<div class="mk-track"><span class="mk-fill"></span><span class="mk-knob"></span></div>`,
@@ -605,7 +625,9 @@ function readLineItems(form, f) {
     const o = {};
     (f.fields || []).forEach((c) => {
       const cell = row.querySelector(`[data-col="${c.key}"]`);
-      o[c.key] = c.type === 'number' ? (Number(cell && cell.value) || 0) : (cell ? cell.value : '');
+      o[c.key] = c.type === 'number' ? (Number(cell && cell.value) || 0)
+        : c.type === 'quantity' ? (Number(cell && cell.value) || 0) * factorOf(c, cell && cell.dataset.uom)
+        : (cell ? cell.value : '');
     });
     return o;
   });
@@ -619,9 +641,14 @@ function recompute(form, fields) {
 
   const flat = {};
   fields.forEach((f) => {
-    if (!['number', 'range', 'rating', 'currency', 'percent'].includes(f.type)) return;
+    if (!['number', 'range', 'rating', 'currency', 'percent', 'quantity'].includes(f.type)) return;
     const n = form.querySelector(`[name="${f.key}"]`);
     if (!n) return;
+    if (f.type === 'quantity') {
+      const u = form.querySelector(`[name="${f.key}__uom"]`);
+      flat[baseKey(f.key)] = (Number(n.value) || 0) * factorOf(f, u ? u.value : dimOf(f).base);
+      return;
+    }
     /* A percentage enters an expression the way it will be stored, never the
        way it was typed — otherwise every formula has to remember which of
        the two scales this particular field happened to declare. */
@@ -1064,6 +1091,29 @@ function buildField(f, idx) {
       break;
     }
 
+    case 'quantity': {
+      input = el('div', 'fb-qty');
+      const dim = dimOf(f);
+      const num = el('input', 'fb-input', { id, type: 'number', name: f.key,
+        step: f.step || 'any', inputmode: 'decimal', placeholder: f.placeholder || '' });
+      if (f.value != null) num.value = f.value;
+      const uom = dropdown({ options: dim.list.map(([u]) => u), value: f.uom || dim.base,
+                             name: `${f.key}__uom`, label: 'Unit', small: true });
+      uom.classList.add('fb-select--tight');
+      const base = el('span', 'fb-qty__base');
+      const paint = () => {
+        const u = uom.querySelector('input[type=hidden]').value;
+        const typed = Number(num.value);
+        base.textContent = num.value === '' || !Number.isFinite(typed)
+          ? `→ — ${dim.base}`
+          : `→ ${Math.round(typed * factorOf(f, u) * 1e6) / 1e6} ${dim.base}`;
+      };
+      input.addEventListener('input', paint);   // covers the number and the unit alike
+      input.append(num, uom, base);
+      paint();
+      break;
+    }
+
     case 'percent': {
       /* The whole reason this is a type and not a Number with a label: the
          schema states the scale, so what the visitor reads and what the API
@@ -1293,6 +1343,11 @@ function buildField(f, idx) {
       input = el('div', 'fb-items');
       input.dataset.items = f.key;
       input.style.setProperty('--cols', cols.length);
+      /* A cell that carries a unit needs more room than one that does not, and
+         a description needs more than either. On a phone that difference is
+         the whole column, so the track sizes come from the sub-schema. */
+      const COL_W = { text: 1.5, textarea: 1.5, quantity: 1.3 };
+      input.style.setProperty('--tpl', cols.map((c) => `minmax(0, ${COL_W[c.type] || 1}fr)`).join(' '));
 
       const head = el('div', 'fb-items__row fb-items__row--head');
       cols.forEach((c) => { const h = el('span'); h.textContent = c.label || c.key; head.appendChild(h); });
@@ -1313,12 +1368,28 @@ function buildField(f, idx) {
         const row = el('div', 'fb-items__row');
         cols.forEach((c) => {
           const cell = el('input', 'fb-input fb-input--sm', {
-            type: c.type === 'number' ? 'number' : 'text',
+            type: c.type === 'number' || c.type === 'quantity' ? 'number' : 'text',
             'data-col': c.key, 'aria-label': c.label || c.key, placeholder: c.label || c.key,
           });
           const v = vals && vals[c.key] != null ? vals[c.key] : c.value;
           if (v != null) cell.value = v;
-          row.appendChild(cell);
+          if (c.type !== 'quantity') { row.appendChild(cell); return; }
+
+          /* Same config, a second rendering. A column this narrow on a phone
+             cannot hold a dropdown, so three units become a tag you cycle. */
+          const box = el('span', 'fb-qty__cell');
+          const list = dimOf(c).list;
+          let ui = Math.max(0, list.findIndex(([name]) => name === (c.uom || dimOf(c).base)));
+          const tag = el('button', 'fb-qty__unit', { type: 'button', 'aria-label': `Unit for ${c.label || c.key}` });
+          const paintU = () => { tag.textContent = list[ui][0]; cell.dataset.uom = list[ui][0]; };
+          tag.addEventListener('click', () => {
+            ui = (ui + 1) % list.length;
+            paintU();
+            cell.dispatchEvent(new Event('input', { bubbles: true }));
+          });
+          paintU();
+          box.append(cell, tag);
+          row.appendChild(box);
         });
         const del = el('button', 'fb-items__del', { type: 'button', 'aria-label': 'Remove row' });
         del.textContent = '×';
@@ -1642,7 +1713,7 @@ function buildField(f, idx) {
      customErrors instead — pushing minLength onto one cell of a six-box code
      is both wrong and, since it exceeds that cell's maxlength, fatal. */
   const COMPOSITE = ['otp', 'tree', 'lookup', 'multiselect', 'signature', 'richtext', 'lineitems',
-                     'rating', 'select', 'country', 'date', 'time', 'datetime-local', 'color',
+                     'rating', 'select', 'country', 'quantity', 'date', 'time', 'datetime-local', 'color',
                      'daterange', 'duration', 'period'];
   const target = COMPOSITE.includes(f.type) ? null
                : input.matches('input, select, textarea') ? input
@@ -1731,6 +1802,14 @@ function readValue(form, f) {
       const picked = node.parentElement.querySelector('[aria-selected="true"]');
       return node.value ? { id: node.value, label: picked ? picked.textContent : '' } : null;
     }
+    case 'quantity': {
+      if (node.value === '') return null;
+      const u = form.querySelector(`[name="${f.key}__uom"]`);
+      const unit = u ? u.value : dimOf(f).base;
+      const value = Number(node.value) || 0;
+      return { value, uom: unit,
+               base: Math.round(value * factorOf(f, unit) * 1e6) / 1e6, baseUom: dimOf(f).base };
+    }
     case 'percent': {
       const typed = Number(node.value);
       if (node.value === '' || !Number.isFinite(typed)) return null;
@@ -1763,7 +1842,7 @@ const OPERATORS = {
 function operatorsFor(type) {
   if (['select', 'radio'].includes(type)) return ['equals', 'notEquals', 'isSet'];
   if (['toggle'].includes(type)) return ['equals'];
-  if (['number', 'currency', 'range', 'rating', 'percent'].includes(type)) return ['equals', 'gt', 'lt', 'isSet'];
+  if (['number', 'currency', 'range', 'rating', 'percent', 'quantity'].includes(type)) return ['equals', 'gt', 'lt', 'isSet'];
   if (['multiselect', 'checkbox'].includes(type)) return ['anyOf', 'isSet'];
   return ['equals', 'notEquals', 'isSet'];
 }
@@ -1773,7 +1852,7 @@ function operatorsFor(type) {
    identifies the answer, not against the whole record. */
 function norm(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return v;
-  for (const k of ['code', 'id', 'amount', 'minutes', 'number', 'from']) if (k in v) return v[k];
+  for (const k of ['code', 'id', 'amount', 'base', 'minutes', 'number', 'from']) if (k in v) return v[k];
   return v;
 }
 
@@ -1930,6 +2009,12 @@ function customErrors(form, fields) {
     if (r.strength && f.type === 'password' && v) {
       const s = strength(v);
       if (s.score < 4) out.push([f.key, `Still needs ${listOf(s.missing)}.`]);
+    }
+
+    if (f.type === 'quantity') {
+      if (r.required && !v) out.push([f.key, 'Required.']);
+      else if (v && r.min != null && v.base < r.min) out.push([f.key, `At least ${r.min} ${v.baseUom}.`]);
+      else if (v && r.max != null && v.base > r.max) out.push([f.key, `No more than ${r.max} ${v.baseUom}.`]);
     }
 
     if (r.requiredTrue && v !== true)
