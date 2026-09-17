@@ -960,18 +960,34 @@ function placePopover(anchor, pop) {
 /* Every popover owes the visitor the same two exits: Escape from anywhere
    inside it, and a click somewhere else. Wiring that per component is how
    one of them ends up missing it. */
-function dismissable(wrap, close, isOpen) {
-  // Escape listens on the document, not on the wrapper: a click inside a
-  // popover does not always leave focus there, and the key has to work anyway.
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape' || !isOpen()) return;
-    close();
-    const btn = wrap.querySelector('button');
+/* Escape and click-outside listen on the document, not on the wrapper: a click
+   inside a popover does not always leave focus there, and the key has to work
+   anyway. But one pair of listeners per popover means the form carries a few
+   hundred of them after a while, and every one of them keeps its control alive
+   in memory long after the control has left the page. So there is exactly one
+   pair for the whole document, and the popovers register with it. */
+const DISMISS = new Set();
+
+const sweep = () => DISMISS.forEach((d) => { if (!d.wrap.isConnected) DISMISS.delete(d); });
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  sweep();
+  DISMISS.forEach((d) => {
+    if (!d.isOpen()) return;
+    d.close();
+    const btn = d.wrap.querySelector('button');
     if (btn) btn.focus();
   });
-  document.addEventListener('pointerdown', (e) => {
-    if (isOpen() && !wrap.contains(e.target)) close();
-  });
+});
+
+document.addEventListener('pointerdown', (e) => {
+  sweep();
+  DISMISS.forEach((d) => { if (d.isOpen() && !d.wrap.contains(e.target)) d.close(); });
+});
+
+function dismissable(wrap, close, isOpen) {
+  DISMISS.add({ wrap, close, isOpen });
 }
 
 /* ---------- a listbox, because the native one is not ours to design ----------
@@ -1612,7 +1628,8 @@ function buildField(f, idx) {
     case 'richtext': {
       input = el('div', 'fb-rt');
       const tools = el('div', 'fb-rt__bar');
-      const body = el('div', 'fb-rt__body', { id, contenteditable: 'true', role: 'textbox', 'aria-multiline': 'true' });
+      const body = el('div', 'fb-rt__body', { id, contenteditable: 'true', role: 'textbox',
+        'aria-multiline': 'true', 'aria-label': lbl(f.label) || f.key });
       body.innerHTML = f.value || '';
       const hidden = el('input', null, { type: 'hidden', name: f.key });
       const sync = () => { hidden.value = body.innerHTML; };
@@ -1715,10 +1732,12 @@ function buildField(f, idx) {
     case 'lookup': {
       const rows = DATASETS[f.ref] || [];
       input = el('div', 'fb-lookup');
+      const listId = `${id}-list`;
       const search = el('input', 'fb-input', { id, type: 'text', autocomplete: 'off',
-        role: 'combobox', 'aria-expanded': 'false', placeholder: `Search ${f.ref}…` });
+        role: 'combobox', 'aria-expanded': 'false', 'aria-controls': listId,
+        'aria-autocomplete': 'list', placeholder: `Search ${f.ref}…` });
       const hidden = el('input', null, { type: 'hidden', name: f.key, required: !!rules.required });
-      const list = el('ul', 'fb-lookup__list', { role: 'listbox', 'data-lenis-prevent': true });
+      const list = el('ul', 'fb-lookup__list', { id: listId, role: 'listbox', 'data-lenis-prevent': true });
       list.hidden = true;
 
       const paint = (q) => {
@@ -1727,7 +1746,9 @@ function buildField(f, idx) {
         const hits = rows.filter((r) =>
           !t || r.name.toLowerCase().includes(t) || r.id.toLowerCase().includes(t)).slice(0, 5);
         hits.forEach((r) => {
-          const li = el('li', 'fb-lookup__row', { role: 'option', tabindex: '0' });
+          /* Options in a listbox are not tab stops — the combobox is. Tabbing
+             through five results to leave one field is not navigation. */
+          const li = el('li', 'fb-lookup__row', { role: 'option', 'aria-selected': 'false' });
           li.innerHTML = `<b></b><small></small>`;
           li.querySelector('b').textContent = r.name;
           li.querySelector('small').textContent = r.id;
@@ -1737,7 +1758,6 @@ function buildField(f, idx) {
             hidden.dispatchEvent(new Event('input', { bubbles: true }));
           };
           li.addEventListener('mousedown', (e) => { e.preventDefault(); pick(); });
-          li.addEventListener('keydown', (e) => { if (e.key === 'Enter') pick(); });
           list.appendChild(li);
         });
         list.hidden = !hits.length;
@@ -1747,6 +1767,24 @@ function buildField(f, idx) {
 
       search.addEventListener('focus', () => paint(search.value));
       search.addEventListener('input', () => { hidden.value = ''; paint(search.value); });
+      search.addEventListener('keydown', (e) => {
+        const opts = [...list.querySelectorAll('.fb-lookup__row')];
+        if (!opts.length || list.hidden) return;
+        let at = opts.findIndex((o) => o.classList.contains('is-on'));
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          at = (at + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length;
+          opts.forEach((o, i) => {
+            o.classList.toggle('is-on', i === at);
+            o.setAttribute('aria-selected', String(i === at));
+          });
+          opts[at].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter' && at > -1) {
+          e.preventDefault();
+          opts[at].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        }
+      });
+
       search.addEventListener('blur', () => setTimeout(() => { list.hidden = true; }, 140));
       input.append(search, hidden, list);
       break;
@@ -2160,6 +2198,17 @@ function buildField(f, idx) {
       target.title = 'Must match the pattern set in the schema';
     }
     if (rules.accept && target.type === 'file') set(() => { target.accept = rules.accept; });
+  }
+
+  /* A label whose "for" points at nothing looks associated and is not: the
+     click does nothing and a screen reader loses the pairing. Composite
+     controls keep their id on whichever element actually takes focus. */
+  if (input.id !== id && !input.querySelector(`[id="${id}"]`)) {
+    const focusable = input.matches('input, select, textarea, button')
+      ? input
+      : input.querySelector('input:not([type=hidden]), select, textarea, button');
+    if (focusable) focusable.id = id;
+    else label.removeAttribute('for');
   }
 
   wrap.appendChild(input);
