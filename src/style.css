@@ -256,8 +256,7 @@ strong { font-weight: 600; color: var(--text); }
 .mk-step i:first-child { border-bottom: 5px solid var(--muted-2); }
 .mk-step i:last-child  { border-top: 5px solid var(--muted-2); }
 
-.mk-dots { display: flex; gap: 5px; }
-.mk-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted-2); }
+.mk-dots { display: flex; align-items: center; gap: 6px; }
 
 .mk-chev { margin-left: auto; width: 7px; height: 7px; border-right: 1.5px solid var(--muted-2); border-bottom: 1.5px solid var(--muted-2); transform: rotate(45deg) translate(-2px, -2px); }
 

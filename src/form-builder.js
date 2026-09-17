@@ -208,6 +208,11 @@ const timeStrip = (flat = false) => `
     <span class="mk-ampm"><i class="is-on">AM</i><i>PM</i></span>
   </div>`;
 
+/* The same dot the calendar grid uses, laid out in a row and carrying the
+   same left-to-right falloff — one material, two shapes. */
+const dotRow = (n) => Array.from({ length: n }, (_, i) =>
+  `<i class="mk-dot" style="--t:${(i / (n - 1)).toFixed(3)}"></i>`).join('');
+
 const star = (on) =>
   `<span class="mk-star${on ? ' is-on' : ''}"><svg viewBox="0 0 20 20" width="16" height="16"
      fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.3"
@@ -219,7 +224,7 @@ const MOCKS = {
   email:    () => `<div class="mk-box">${mkIcon('<rect x="3" y="5" width="14" height="10" rx="2"/><path d="M3.5 6.5 10 11l6.5-4.5"/>')}${bar('26%')}<span class="mk-at">@</span>${bar('30%')}<span class="mk-tld">.com</span></div>`,
   url:      () => `<div class="mk-box">${mkIcon('<circle cx="10" cy="10" r="7"/><path d="M3 10h14M10 3a13 13 0 0 1 0 14a13 13 0 0 1 0-14"/>')}<span class="mk-tld">https://</span>${bar('38%')}</div>`,
   number:   () => `<div class="mk-box">${bar('22%')}<span class="mk-step"><i></i><i></i></span></div>`,
-  password: () => `<div class="mk-box">${mkIcon('<rect x="4" y="9" width="12" height="7" rx="2"/><path d="M7 9V6.5a3 3 0 0 1 6 0V9"/>')}<span class="mk-dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>`,
+  password: () => `<div class="mk-box">${mkIcon('<rect x="4" y="9" width="12" height="7" rx="2"/><path d="M7 9V6.5a3 3 0 0 1 6 0V9"/>')}<span class="mk-dots">${dotRow(8)}</span></div>`,
   select:   () => `<div class="mk-box">${bar('34%')}<span class="mk-chev"></span></div>
                    <div class="mk-menu"><span class="mk-opt is-on">${bar('46%')}</span><span class="mk-opt">${bar('34%')}</span><span class="mk-opt">${bar('52%')}</span></div>`,
   checkbox: () => `<div class="mk-list">
