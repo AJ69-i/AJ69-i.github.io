@@ -613,7 +613,7 @@ function buildField(f, idx) {
       const search = el('input', 'fb-input', { id, type: 'text', autocomplete: 'off',
         role: 'combobox', 'aria-expanded': 'false', placeholder: `Search ${f.ref}…` });
       const hidden = el('input', null, { type: 'hidden', name: f.key, required: !!f.required });
-      const list = el('ul', 'fb-lookup__list', { role: 'listbox' });
+      const list = el('ul', 'fb-lookup__list', { role: 'listbox', 'data-lenis-prevent': true });
       list.hidden = true;
 
       const paint = (q) => {
