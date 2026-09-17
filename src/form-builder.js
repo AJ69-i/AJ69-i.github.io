@@ -74,7 +74,7 @@ export const CONTROLS = [
 
   { type: 'toggle', label: 'True / False', group: 'Choice', icon: svg('<rect x="2.5" y="6.5" width="15" height="7" rx="3.5"/><circle cx="13.5" cy="10" r="2.2" fill="currentColor" stroke="none"/>'),
     hint: 'A single boolean, rendered as a switch rather than a checkbox.',
-    sample: { key: 'active', label: 'Active', type: 'toggle', value: true } },
+    sample: { key: 'terms', label: 'I accept the terms', type: 'toggle', value: false } },
 
   /* ---- Date & time ---- */
   { type: 'date', label: 'Date', group: 'Date & time', icon: svg('<rect x="3" y="5" width="14" height="12" rx="2"/><path d="M3 9h14M7 3v4M13 3v4"/>'),
@@ -165,7 +165,7 @@ const RULES = {
   multiselect: [rule('required', 'required', true), rule('minSelected', 'min selected', 2)],
   checkbox:  [rule('required', 'required', true), rule('minSelected', 'min selected', 1)],
   radio:     [rule('required', 'required', true)],
-  toggle:    [],
+  toggle:    [rule('requiredTrue', 'must be on', true)],
   date:      [rule('required', 'required', true), rule('notPast', 'no past dates', true)],
   time:      [rule('required', 'required', true)],
   'datetime-local': [rule('required', 'required', true), rule('notPast', 'no past dates', true)],
@@ -177,7 +177,7 @@ const RULES = {
   barcode:   [rule('required', 'required', true), rule('pattern', 'alphanumeric', '^[A-Za-z0-9-]{4,}$')],
   tree:      [rule('required', 'required', true), rule('leafOnly', 'leaf nodes only', true)],
   lookup:    [rule('required', 'required', true)],
-  lineitems: [rule('minRows', 'min rows', 2)],
+  lineitems: [rule('minRows', 'min rows', 2), rule('maxRows', 'max rows', 5), rule('unique', 'no duplicate rows', 'desc')],
   computed:  [],
 };
 
@@ -185,7 +185,6 @@ const RULES = {
    decision rather than an oversight. */
 const NO_RULES = {
   range: 'A slider always holds a value inside its own bounds.',
-  toggle: 'A boolean is answered either way.',
   color: 'Any hex the picker returns is already valid.',
   computed: 'Never typed into, so there is nothing to reject.',
 };
@@ -224,7 +223,7 @@ const HELP = {
   multiselect: 'Pick every tag that applies.',
   checkbox: 'Modules can be added later without a new contract.',
   radio: 'Annual billing carries a discount.',
-  toggle: 'Inactive records stay searchable but are hidden by default.',
+  toggle: 'You can review the full terms before you agree.',
   date: 'The first day users will be able to sign in.',
   time: 'Local time at the customer site.',
   'datetime-local': 'We hold the slot for 48 hours.',
@@ -582,7 +581,7 @@ function buildField(f, idx) {
 
   const label = el('label', 'fb-label', { for: id });
   label.textContent = f.label || f.key || `Field ${idx + 1}`;
-  if (rules.required) { const s = el('span', 'fb-req'); s.textContent = '*'; label.appendChild(s); }
+  if (rules.required || rules.requiredTrue) { const s = el('span', 'fb-req'); s.textContent = '*'; label.appendChild(s); }
   wrap.appendChild(label);
 
   let input;
@@ -1095,6 +1094,25 @@ function customErrors(form, fields) {
 
     if (r.minRows && (!Array.isArray(v) || v.length < r.minRows))
       out.push([f.key, `At least ${r.minRows} row${r.minRows === 1 ? '' : 's'}.`]);
+
+    if (r.maxRows && Array.isArray(v) && v.length > r.maxRows)
+      out.push([f.key, `No more than ${r.maxRows} rows.`]);
+
+    // a rule that only means anything on a repeating group
+    if (r.unique && Array.isArray(v)) {
+      const seen = new Set();
+      const dupe = v.some((row) => {
+        const key = String(row[r.unique] ?? '').trim().toLowerCase();
+        if (!key) return false;
+        if (seen.has(key)) return true;
+        seen.add(key);
+        return false;
+      });
+      if (dupe) out.push([f.key, `Two rows share the same ${r.unique}.`]);
+    }
+
+    if (r.requiredTrue && v !== true)
+      out.push([f.key, 'This has to be switched on to continue.']);
 
     if (r.min != null && f.type === 'rating' && Number(v) < r.min)
       out.push([f.key, `At least ${r.min}.`]);
