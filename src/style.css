@@ -812,3 +812,6 @@ strong { font-weight: 600; color: var(--text); }
 .fb-pct .fb-input { flex: 1 1 auto; min-width: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .fb-pct__sign { font-size: 0.85rem; color: var(--muted-2); flex-shrink: 0; }
 .fb-pct__stored { flex-shrink: 0; font-size: 0.72rem; color: var(--accent); font-variant-numeric: tabular-nums; padding: 0.24rem 0.5rem; border: 1px solid var(--line-soft); border-radius: 6px; background: rgba(233,184,114,0.06); }
+
+/* ---------- country: the one control whose answer writes other answers ---------- */
+.mk-drive { display: flex; align-items: center; gap: 0.4rem; padding-left: 0.6rem; }

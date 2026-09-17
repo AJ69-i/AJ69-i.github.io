@@ -12,6 +12,26 @@ const svg = (paths) =>
 
 /* Each entry is one control the engine knows how to render. Adding a type here
    is the only change needed — nothing downstream knows about specific types. */
+/* Four columns, not one. A country field that only knows a name is exactly
+   why somebody later hard-codes a dial code inside a component. */
+const COUNTRIES = [
+  { code: 'EG', name: 'Egypt',                dial: '+20',  currency: 'EGP' },
+  { code: 'SA', name: 'Saudi Arabia',         dial: '+966', currency: 'SAR' },
+  { code: 'AE', name: 'United Arab Emirates', dial: '+971', currency: 'AED' },
+  { code: 'KW', name: 'Kuwait',               dial: '+965', currency: 'KWD' },
+  { code: 'QA', name: 'Qatar',                dial: '+974', currency: 'QAR' },
+  { code: 'JO', name: 'Jordan',               dial: '+962', currency: 'JOD' },
+  { code: 'GB', name: 'United Kingdom',       dial: '+44',  currency: 'GBP' },
+  { code: 'DE', name: 'Germany',              dial: '+49',  currency: 'EUR' },
+  { code: 'US', name: 'United States',        dial: '+1',   currency: 'USD' },
+];
+
+/* The phone and money controls take their lists from the same table, which is
+   the only reason a cascade can ever land: a driven value the target has
+   never heard of is a cascade that quietly does nothing. */
+const DIALS = [...new Set(COUNTRIES.map((c) => c.dial))];
+const CURRENCIES = [...new Set(COUNTRIES.map((c) => c.currency))].sort();
+
 export const CONTROLS = [
   /* ---- Text ---- */
   { type: 'text', label: 'Text', group: 'Text', icon: svg('<path d="M4 6h12M10 6v9"/>'),
@@ -32,7 +52,7 @@ export const CONTROLS = [
 
   { type: 'tel', label: 'Phone', group: 'Text', icon: svg('<path d="M5 3h2.6l1.3 3.6-1.8 1.3a10.5 10.5 0 0 0 4 4l1.3-1.8L16 11.4V14a2 2 0 0 1-2.2 2A13 13 0 0 1 3 5.2 2 2 0 0 1 5 3z"/>'),
     hint: 'Dial code and number stay separate, so the value keeps its country.',
-    sample: { key: 'phone', label: 'Phone', type: 'tel', dial: '+20', dials: ['+20', '+966', '+971', '+44', '+1'], placeholder: '10 1234 5678' } },
+    sample: { key: 'phone', label: 'Phone', type: 'tel', dial: '+20', dials: DIALS, placeholder: '10 1234 5678' } },
 
   { type: 'password', label: 'Password', group: 'Text', icon: svg('<rect x="4" y="9" width="12" height="7" rx="2"/><path d="M7 9V6.5a3 3 0 0 1 6 0V9"/>'),
     hint: 'Masked input. The value never appears in the rendered markup.',
@@ -45,7 +65,7 @@ export const CONTROLS = [
 
   { type: 'currency', label: 'Currency', group: 'Numbers', icon: svg('<rect x="2.5" y="5.5" width="15" height="9" rx="2"/><circle cx="10" cy="10" r="2.2"/><path d="M5.5 8.5v3M14.5 8.5v3"/>'),
     hint: 'Amount and currency travel together, so the number is never ambiguous.',
-    sample: { key: 'budget', label: 'Budget', type: 'currency', currency: 'EGP', currencies: ['EGP', 'USD', 'EUR', 'SAR'], value: 25000 } },
+    sample: { key: 'budget', label: 'Budget', type: 'currency', currency: 'EGP', currencies: CURRENCIES, value: 25000 } },
 
   { type: 'range', label: 'Slider', group: 'Numbers', icon: svg('<path d="M3 10h14"/><circle cx="12.5" cy="10" r="2.8"/>'),
     hint: 'A bounded number where the range reads faster than the figure.',
@@ -79,6 +99,10 @@ export const CONTROLS = [
   { type: 'toggle', label: 'True / False', group: 'Choice', icon: svg('<rect x="2.5" y="6.5" width="15" height="7" rx="3.5"/><circle cx="13.5" cy="10" r="2.2" fill="currentColor" stroke="none"/>'),
     hint: 'A single boolean, rendered as a switch rather than a checkbox.',
     sample: { key: 'terms', label: 'I accept the terms', type: 'toggle', value: false } },
+
+  { type: 'country', label: 'Country', group: 'Choice', icon: svg('<circle cx="10" cy="10" r="7"/><path d="M3.6 7.2h12.8M3.6 12.8h12.8"/><path d="M10 3a11 11 0 0 1 0 14a11 11 0 0 1 0-14"/>'),
+    hint: 'One answer that fills in the next. It names the kinds of field it drives, so picking a country sets the currency and the dial code with no component code at all.',
+    sample: { key: 'country', label: 'Country', type: 'country', ref: 'countries', value: 'EG', drives: ['currency', 'tel'] } },
 
   /* ---- Date & time ---- */
   { type: 'date', label: 'Date', group: 'Date & time', icon: svg('<rect x="3" y="5" width="14" height="12" rx="2"/><path d="M3 9h14M7 3v4M13 3v4"/>'),
@@ -182,6 +206,7 @@ const RULES = {
   multiselect: [rule('required', 'required', true), rule('minSelected', 'min selected', 2)],
   checkbox:  [rule('required', 'required', true), rule('minSelected', 'min selected', 1)],
   radio:     [rule('required', 'required', true)],
+  country:   [rule('required', 'required', true)],
   toggle:    [rule('requiredTrue', 'must be on', true)],
   date:      [rule('required', 'required', true), rule('notPast', 'no past dates', true)],
   time:      [rule('required', 'required', true)],
@@ -218,6 +243,7 @@ const NO_RULES = {
 const FILTER_KIND = {
   text: 'contains', textarea: 'contains', email: 'contains', url: 'contains',
   tel: 'contains', richtext: 'contains', lookup: 'contains', barcode: 'contains', tree: 'contains',
+  country: 'contains',
   number: 'range', currency: 'range', range: 'range', rating: 'range', percent: 'range',
   date: 'dateRange', 'datetime-local': 'dateRange', time: 'dateRange', period: 'dateRange',
   duration: 'range',
@@ -245,6 +271,7 @@ const HELP = {
   multiselect: 'Pick every tag that applies.',
   checkbox: 'Modules can be added later without a new contract.',
   radio: 'Annual billing carries a discount.',
+  country: 'Sets the currency and the dial code on the rest of this form.',
   toggle: 'You can review the full terms before you agree.',
   date: 'The first day users will be able to sign in.',
   time: 'Local time at the customer site.',
@@ -296,6 +323,7 @@ const TREE = [
 ];
 
 const DATASETS = {
+  countries: COUNTRIES,
   customers: [
     { id: 'CUS-1042', name: 'Acme Trading' },
     { id: 'CUS-1187', name: 'Nile Logistics' },
@@ -401,6 +429,8 @@ const MOCKS = {
                      <span class="mk-row"><i class="mk-radio is-on"></i>${bar('26%')}</span>
                      <span class="mk-row"><i class="mk-radio"></i>${bar('32%')}</span></div>`,
   toggle:   () => `<div class="mk-row mk-row--switch"><span class="mk-switch"><i></i></span>${bar('28%')}</div>`,
+  country:  () => `<div class="mk-box">${mkIcon('<circle cx="10" cy="10" r="7"/><path d="M3.6 7.2h12.8M3.6 12.8h12.8"/><path d="M10 3a11 11 0 0 1 0 14a11 11 0 0 1 0-14"/>')}${bar('34%')}<span class="mk-chev"></span></div>
+                   <div class="mk-drive"><span class="mk-arrow"></span><span class="mk-pill">EGP</span><span class="mk-pill">+20</span></div>`,
   date:     () => `<div class="mk-box">${mkIcon(I_CAL)}${bar('34%')}<span class="mk-chev"></span></div>${calendar()}`,
   time:     () => `<div class="mk-box">${mkIcon(I_CLOCK)}${clockBars()}<em class="mk-mer">AM</em><span class="mk-chev"></span></div>
                    <div class="mk-panel">${timeStrip()}</div>`,
@@ -717,6 +747,17 @@ function dropdown({ options, value, name, id, label, small, required, onChange }
       if (at > -1) { index = at; paint(); if (openNow) list.querySelector('.is-on').scrollIntoView({ block: 'nearest' }); }
     }
   });
+  /* A cascade has to be able to set this from outside, and silently: it runs
+     inside the form's own input handler, so an event dispatched from here
+     comes straight back around. */
+  wrap.setValue = (v) => {
+    const at = items.findIndex((o) => String(o.value) === String(v));
+    if (at < 0 || at === index) return false;
+    index = at;
+    paint();
+    return true;
+  };
+
   dismissable(wrap, close, () => !list.hidden);
 
   wrap.append(btn, hidden, list);
@@ -919,6 +960,11 @@ function buildField(f, idx) {
     case 'select':
       input = dropdown({ options: f.options || [], value: f.value, name: f.key,
                          id, label: f.label, required: !!rules.required });
+      break;
+
+    case 'country':
+      input = dropdown({ options: (DATASETS[f.ref] || COUNTRIES).map((c) => ({ value: c.code, label: c.name })),
+                         value: f.value, name: f.key, id, label: f.label, required: !!rules.required });
       break;
 
     case 'checkbox':
@@ -1550,7 +1596,7 @@ function buildField(f, idx) {
      customErrors instead — pushing minLength onto one cell of a six-box code
      is both wrong and, since it exceeds that cell's maxlength, fatal. */
   const COMPOSITE = ['otp', 'tree', 'lookup', 'multiselect', 'signature', 'richtext', 'lineitems',
-                     'rating', 'select', 'date', 'time', 'datetime-local', 'color',
+                     'rating', 'select', 'country', 'date', 'time', 'datetime-local', 'color',
                      'daterange', 'duration', 'period'];
   const target = COMPOSITE.includes(f.type) ? null
                : input.matches('input, select, textarea') ? input
@@ -1615,6 +1661,10 @@ function readValue(form, f) {
       const shown = node.parentElement.querySelector('input[type="text"]');
       return node.value ? { id: node.value, [f.display || 'name']: shown ? shown.value : '' } : null;
     }
+    case 'country': {
+      const row = COUNTRIES.find((c) => c.code === node.value);
+      return row ? { code: row.code, name: row.name } : null;
+    }
     case 'computed':
       return Number(node.dataset.value || 0);
     case 'daterange': {
@@ -1668,10 +1718,19 @@ function operatorsFor(type) {
   return ['equals', 'notEquals', 'isSet'];
 }
 
+/* Several types answer with an object — a country, a lookup row, a tree node,
+   an amount with its currency. A condition is written against the part that
+   identifies the answer, not against the whole record. */
+function norm(v) {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return v;
+  for (const k of ['code', 'id', 'amount', 'minutes', 'number', 'from']) if (k in v) return v[k];
+  return v;
+}
+
 function conditionMet(cond, values) {
   if (!cond || !cond.field) return true;
   if (!(cond.field in values)) return true;      // fail open: never hide because of a stale reference
-  const v = values[cond.field];
+  const v = norm(values[cond.field]);
   const want = cond.value;
 
   switch (cond.op) {
@@ -1702,6 +1761,43 @@ function currentValues(form, fields) {
     try { out[f.key] = readValue(form, f); } catch { out[f.key] = null; }
   });
   return out;
+}
+
+/* ---------- one answer filling in the next ----------
+   Not the same thing as showIf. Nothing appears or disappears here; a value
+   is written. The field names the kinds of field it drives and the engine
+   finds them, so nothing in this function knows the word "country" — a row
+   with columns and a list of what to spread them over is the whole contract. */
+const CASCADE = {
+  currency: { col: 'currency', part: '__cur' },
+  tel:      { col: 'dial',     part: '__dial' },
+};
+
+function applyCascades(form, fields) {
+  const seen = (form.__cascade || (form.__cascade = {}));
+
+  fields.filter((f) => Array.isArray(f.drives) && f.drives.length).forEach((f) => {
+    const src = form.querySelector(`[name="${f.key}"]`);
+    if (!src) return;
+    /* Only on a real change. Running on every keystroke would mean a visitor
+       who deliberately picks a different currency loses it the moment they
+       type anywhere else in the form. */
+    if (seen[f.key] === src.value) return;
+    seen[f.key] = src.value;
+
+    const row = (DATASETS[f.ref] || COUNTRIES).find((c) => c.code === src.value);
+    if (!row) return;
+
+    f.drives.forEach((kind) => {
+      const spec = CASCADE[kind];
+      if (!spec) return;
+      fields.filter((t) => t.type === kind).forEach((t) => {
+        const hidden = form.querySelector(`[name="${t.key}${spec.part}"]`);
+        const box = hidden && hidden.closest('.fb-select');
+        if (box && box.setValue) box.setValue(row[spec.col]);
+      });
+    });
+  });
 }
 
 function applyVisibility(form, fields) {
@@ -1955,7 +2051,7 @@ export function renderForm(schema, mount) {
 
   // A computed field answers to the whole form, so it re-runs on any change —
   // and so does every condition, because one answer can reveal the next question.
-  const refresh = () => { applyVisibility(form, fields); recompute(form, fields); };
+  const refresh = () => { applyVisibility(form, fields); applyCascades(form, fields); recompute(form, fields); };
   form.addEventListener('input', refresh);
   form.addEventListener('change', refresh);
   refresh();
@@ -2083,6 +2179,13 @@ export function initFormBuilder() {
       condEl.appendChild(dropdown({
         options: [{ value: 'true', label: 'on' }, { value: 'false', label: 'off' }],
         value: String(cond.value || 'true'), name: '__cond_val', label: 'Value', small: true,
+        onChange: (o) => { cond.value = o.value; },
+      }));
+    } else if (target && target.type === 'country') {
+      if (!cond.value) cond.value = COUNTRIES[0].code;
+      condEl.appendChild(dropdown({
+        options: COUNTRIES.map((c) => ({ value: c.code, label: c.name })),
+        value: cond.value, name: '__cond_val', label: 'Value', small: true,
         onChange: (o) => { cond.value = o.value; },
       }));
     } else if (target && target.options) {
