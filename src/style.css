@@ -884,6 +884,10 @@ strong { font-weight: 600; color: var(--text); }
 .fb-form[dir="rtl"] input[type="email"],
 .fb-form[dir="rtl"] input[type="url"] { direction: ltr; }
 .fb-form[dir="rtl"] input[type="number"] { text-align: left; }
+/* A dial code is a number with a sign in front of it: +966, never 966+. It
+   lives in a custom dropdown rather than a tel input, so the bidi algorithm
+   reorders it unless the button's own text is pinned. */
+.fb-form[dir="rtl"] .fb-tel .fb-select__value { direction: ltr; }
 
 /* A popover that would be cut off by the panel edge opens upwards instead. */
 .fb-select__list.is-up,
