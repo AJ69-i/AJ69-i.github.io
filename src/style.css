@@ -238,8 +238,8 @@ strong { font-weight: 600; color: var(--text); }
    That gap is live: a chip scrolling past the heading did not stop at it, it
    carried on into the gutter and sat there half-cut, so a single row read as
    three — its top above the heading, the heading's band across it, its bottom
-   edge below. The heading now paints the gutter it stands in, and dissolves
-   what passes underneath rather than slicing it. */
+   edge below. The heading now paints the gutter it stands in, and marks its
+   own lower edge so that what passes underneath reads as passing underneath. */
 .fb-group { position: sticky; top: 0; z-index: 2; margin: 0 0 0.95rem; padding: 0.35rem 0 0.5rem; font-family: var(--font-display); font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted-2); background: var(--bg-card); }
 .fb-group::before, .fb-group::after { content: ''; position: absolute; inset-inline: calc(var(--fb-pad) * -1); pointer-events: none; }
 .fb-group::before { bottom: 100%; height: var(--fb-pad); background: var(--bg-card); }
@@ -564,6 +564,7 @@ strong { font-weight: 600; color: var(--text); }
 .fb-star:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 
 .fb-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.fb-tags__search { order: -1; flex: 1 0 100%; margin-bottom: 0.1rem; }
 .fb-tag { font-family: var(--font-body); font-size: 0.78rem; color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 100px; padding: 0.35rem 0.75rem; cursor: pointer; transition: color .25s var(--ease), border-color .25s var(--ease), background .25s var(--ease); }
 .fb-tag:hover { color: var(--text); border-color: rgba(233,184,114,0.3); }
 .fb-tag[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
@@ -698,6 +699,13 @@ strong { font-weight: 600; color: var(--text); }
 .fb-select__btn[aria-expanded="true"] .fb-select__chev { transform: rotate(225deg) translate(-3px, -3px); border-color: var(--accent); }
 
 .fb-select__list { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 6px); margin: 0; padding: 0.3rem; list-style: none; max-height: 232px; overflow: auto; overscroll-behavior: contain; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 20px 44px rgba(0,0,0,0.55); }
+/* With a search in it the popup is no longer the list — it is a box holding a
+   search, the list, and a line for when nothing matches. The box takes the
+   positioning and the chrome; the list inside it goes back to being a list. */
+.fb-select__pop { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 6px); padding: 0.3rem; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 20px 44px rgba(0,0,0,0.55); }
+.fb-select__pop > .fb-select__list { position: static; max-height: 196px; padding: 0; background: none; border: 0; border-radius: 0; box-shadow: none; }
+.fb-select__search { width: 100%; margin-bottom: 0.3rem; }
+.fb-select__none { margin: 0; padding: 0.55rem 0.62rem; font-size: 0.82rem; color: var(--muted-2); }
 .fb-select__opt { padding: 0.5rem 0.62rem; border-radius: 7px; font-size: 0.86rem; color: var(--muted); cursor: pointer; }
 .fb-select__opt:hover { background: rgba(243,240,234,0.06); color: var(--text); }
 .fb-select__opt.is-on { background: var(--accent-dim); color: var(--accent); }
@@ -705,7 +713,8 @@ strong { font-weight: 600; color: var(--text); }
 
 .fb-select--sm .fb-select__btn { padding: 0.45rem 0.6rem; font-size: 0.82rem; border-radius: 7px; }
 .fb-select--tight { width: auto; flex: 0 0 auto; }
-.fb-select--tight .fb-select__list { inset-inline-start: 0; inset-inline-end: auto; min-width: 100%; width: max-content; }
+.fb-select--tight .fb-select__list,
+.fb-select--tight .fb-select__pop { inset-inline-start: 0; inset-inline-end: auto; min-width: 100%; width: max-content; }
 .fb-field.is-invalid .fb-select__btn { border-color: #e88b7d; }
 
 /* ---------- the date and time pickers ---------- */
@@ -922,6 +931,7 @@ strong { font-weight: 600; color: var(--text); }
 
 /* A popover that would be cut off by the panel edge opens upwards instead. */
 .fb-select__list.is-up,
+.fb-select__pop.is-up,
 .fb-lookup__list.is-up { top: auto; bottom: calc(100% + 6px); }
 .fb-date__pop.is-up { top: auto; bottom: calc(100% + 6px); }
 

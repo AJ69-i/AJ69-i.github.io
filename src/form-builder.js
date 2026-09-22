@@ -484,11 +484,15 @@ const NO_RULES = {
 };
 
 /* ---------- the other half of a field's job ----------
-   A field config does not only draw an input. Mark it searchable and the
-   list view has to offer a way to filter on it — and a filter is rarely the
-   same control as the input. A text box becomes "contains". A number becomes
-   a pair of bounds. A date becomes a span. A select becomes "any of".
-   Same config, two renderings; that is the whole point of config-driven. */
+   A field config does not only draw an input. Mark it filterable and the list
+   view has to offer a way to filter on it — and a filter is rarely the same
+   control as the input. A text box becomes "contains". A number becomes a pair
+   of bounds. A date becomes a span. A select becomes "any of".
+   Same config, two renderings; that is the whole point of config-driven.
+
+   "filterable", not "searchable": searchable is a property of the control —
+   a list of choices long enough to want a search in it — and the two were
+   sharing one word, which is how nobody could tell what either of them did. */
 const FILTER_KIND = {
   text: 'contains', textarea: 'contains', email: 'contains', url: 'contains',
   tel: 'contains', richtext: 'contains', lookup: 'contains', barcode: 'contains', tree: 'contains',
@@ -998,7 +1002,7 @@ function dismissable(wrap, close, isOpen) {
    highlight colour, its own metrics. Nothing in a design system reaches it.
    So this is a real combobox — button, listbox, hidden input for the value —
    with the keyboard behaviour people expect from the native one. */
-function dropdown({ options, value, name, id, label, small, required, onChange }) {
+function dropdown({ options, value, name, id, label, small, required, search, onChange }) {
   const wrap = el('div', 'fb-select' + (small ? ' fb-select--sm' : ''));
   const hidden = el('input', null, { type: 'hidden', name, required: !!required });
   const btn = el('button', 'fb-select__btn', {
@@ -1006,12 +1010,33 @@ function dropdown({ options, value, name, id, label, small, required, onChange }
     'aria-expanded': 'false', 'aria-label': label || name,
   });
   const text = el('span', 'fb-select__value');
-  const list = el('ul', 'fb-select__list', { role: 'listbox', 'data-lenis-prevent': true });
-  list.hidden = true;
+  const listId = `fb-list-${name || id || (dropdown.n = (dropdown.n || 0) + 1)}`;
+  const list = el('ul', 'fb-select__list', { id: listId, role: 'listbox', 'data-lenis-prevent': true });
   btn.append(text, el('i', 'fb-select__chev'));
 
   const items = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
   let index = Math.max(0, items.findIndex((o) => o.value === value));
+
+  /* With a filter in the popup the arrow keys have to walk what is on screen,
+     not what is in the array — so the visible set is kept as it is typed. */
+  let view = items.map((_, i) => i);
+
+  /* The popup is the list itself until there is something to put above it. */
+  let filter = null;
+  let none = null;
+  const pop = search ? el('div', 'fb-select__pop') : list;
+  if (search) {
+    filter = el('input', 'fb-input fb-input--sm fb-select__search', {
+      type: 'text', autocomplete: 'off', role: 'combobox',
+      'aria-expanded': 'false', 'aria-controls': listId, 'aria-autocomplete': 'list',
+      'aria-label': `Search ${label || name || 'options'}`, placeholder: 'Search…',
+    });
+    none = el('p', 'fb-select__none');
+    none.textContent = 'Nothing matches that.';
+    none.hidden = true;
+    pop.append(filter, list, none);
+  }
+  pop.hidden = true;
 
   const paint = () => {
     const chosen = items[index];
@@ -1021,18 +1046,38 @@ function dropdown({ options, value, name, id, label, small, required, onChange }
       li.setAttribute('aria-selected', String(i === index));
       li.classList.toggle('is-on', i === index);
     });
+    if (filter) filter.setAttribute('aria-activedescendant', list.children[index] ? list.children[index].id : '');
+  };
+
+  const sift = () => {
+    const q = filter.value.trim().toLowerCase();
+    view = [];
+    list.querySelectorAll('li').forEach((li, i) => {
+      const hit = !q || items[i].label.toLowerCase().includes(q);
+      li.hidden = !hit;
+      if (hit) view.push(i);
+    });
+    none.hidden = view.length > 0;
+    placePopover(btn, pop);
   };
 
   const close = () => {
-    list.hidden = true;
+    pop.hidden = true;
     btn.setAttribute('aria-expanded', 'false');
+    if (filter) filter.setAttribute('aria-expanded', 'false');
   };
   const open = () => {
-    list.hidden = false;
+    pop.hidden = false;
     btn.setAttribute('aria-expanded', 'true');
-    placePopover(btn, list);
+    if (filter) {
+      filter.value = '';
+      sift();
+      filter.setAttribute('aria-expanded', 'true');
+    }
+    placePopover(btn, pop);
     const on = list.querySelector('.is-on');
     if (on) on.scrollIntoView({ block: 'nearest' });
+    if (filter) filter.focus();
   };
   const choose = (i) => {
     index = i;
@@ -1045,33 +1090,57 @@ function dropdown({ options, value, name, id, label, small, required, onChange }
 
   items.forEach((o, i) => {
     const li = el('li', 'fb-select__opt', { role: 'option', 'aria-selected': 'false' });
+    if (search) li.id = `${listId}-${i}`;
     li.textContent = o.label;
     li.addEventListener('mousedown', (e) => { e.preventDefault(); choose(i); });
     list.appendChild(li);
   });
 
-  btn.addEventListener('click', () => (list.hidden ? open() : close()));
+  /* One step through whatever is currently on screen. */
+  const step = (dir) => {
+    if (!view.length) return;
+    let at = view.indexOf(index);
+    at = at < 0 ? (dir > 0 ? 0 : view.length - 1) : (at + dir + view.length) % view.length;
+    index = view[at];
+    paint();
+    const on = list.children[index];
+    if (on) on.scrollIntoView({ block: 'nearest' });
+  };
+
+  btn.addEventListener('click', () => (pop.hidden ? open() : close()));
   btn.addEventListener('keydown', (e) => {
-    const openNow = !list.hidden;
+    const openNow = !pop.hidden;
     if (e.key === 'Escape') { close(); return; }
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNow ? choose(index) : open(); return; }
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       if (!openNow) { open(); return; }
-      index = (index + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
-      paint();
-      list.querySelector('.is-on').scrollIntoView({ block: 'nearest' });
+      step(e.key === 'ArrowDown' ? 1 : -1);
       return;
     }
-    if (e.key === 'Home') { e.preventDefault(); index = 0; paint(); return; }
-    if (e.key === 'End') { e.preventDefault(); index = items.length - 1; paint(); return; }
+    if (e.key === 'Home') { e.preventDefault(); index = view[0]; paint(); return; }
+    if (e.key === 'End') { e.preventDefault(); index = view[view.length - 1]; paint(); return; }
     // type-ahead, the one native behaviour people miss when it is gone
     if (e.key.length === 1 && /\S/.test(e.key)) {
-      const from = items.findIndex((o, i) => i > index && o.label.toLowerCase().startsWith(e.key.toLowerCase()));
-      const at = from > -1 ? from : items.findIndex((o) => o.label.toLowerCase().startsWith(e.key.toLowerCase()));
-      if (at > -1) { index = at; paint(); if (openNow) list.querySelector('.is-on').scrollIntoView({ block: 'nearest' }); }
+      const hits = view.filter((i) => items[i].label.toLowerCase().startsWith(e.key.toLowerCase()));
+      if (!hits.length) return;
+      const next = hits.find((i) => i > index);
+      index = next === undefined ? hits[0] : next;
+      paint();
+      if (openNow && list.children[index]) list.children[index].scrollIntoView({ block: 'nearest' });
     }
   });
+
+  if (filter) {
+    filter.addEventListener('input', sift);
+    filter.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); close(); btn.focus(); return; }
+      if (e.key === 'Enter') { e.preventDefault(); if (view.includes(index)) choose(index); return; }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); step(e.key === 'ArrowDown' ? 1 : -1); return; }
+      if (e.key === 'Tab') close();
+    });
+  }
+
   /* A cascade has to be able to set this from outside, and silently: it runs
      inside the form's own input handler, so an event dispatched from here
      comes straight back around. */
@@ -1083,9 +1152,9 @@ function dropdown({ options, value, name, id, label, small, required, onChange }
     return true;
   };
 
-  dismissable(wrap, close, () => !list.hidden);
+  dismissable(wrap, close, () => !pop.hidden);
 
-  wrap.append(btn, hidden, list);
+  wrap.append(btn, hidden, pop);
   paint();
   return wrap;
 }
@@ -1358,17 +1427,19 @@ function buildField(f, idx) {
   switch (f.type) {
     case 'select':
       input = dropdown({ options: f.options || [], value: f.value, name: f.key,
-                         id, label: f.label, required: !!rules.required });
+                         id, label: f.label, required: !!rules.required, search: !!f.searchable });
       break;
 
     case 'locale':
       input = dropdown({ options: (DATASETS[f.ref] || LOCALES).map((c) => ({ value: c.code, label: c.label })),
-                         value: f.value, name: f.key, id, label: lbl(f.label), required: !!rules.required });
+                         value: f.value, name: f.key, id, label: lbl(f.label), required: !!rules.required,
+                         search: !!f.searchable });
       break;
 
     case 'country':
       input = dropdown({ options: (DATASETS[f.ref] || COUNTRIES).map((c) => ({ value: c.code, label: c.name })),
-                         value: f.value, name: f.key, id, label: f.label, required: !!rules.required });
+                         value: f.value, name: f.key, id, label: f.label, required: !!rules.required,
+                         search: !!f.searchable });
       break;
 
     case 'checkbox':
@@ -1611,6 +1682,23 @@ function buildField(f, idx) {
       input = el('div', 'fb-tags', { role: 'group', 'aria-label': f.label || 'Tags' });
       const chosen = new Set(Array.isArray(f.value) ? f.value : []);
       const hidden = el('input', null, { type: 'hidden', name: f.key });
+      /* No popup to put a search in — the options are already on the page, so
+         the filter hides the ones that do not match rather than listing the
+         ones that do. A chosen chip stays visible whatever is typed: hiding
+         something the user has already picked is how a selection gets lost. */
+      if (f.searchable) {
+        const sieve = el('input', 'fb-input fb-input--sm fb-tags__search', {
+          type: 'text', autocomplete: 'off', placeholder: 'Filter options…',
+          'aria-label': `Filter ${lbl(f.label) || f.key} options`,
+        });
+        sieve.addEventListener('input', () => {
+          const q = sieve.value.trim().toLowerCase();
+          input.querySelectorAll('.fb-tag').forEach((b) => {
+            b.hidden = !!q && !chosen.has(b.textContent) && !b.textContent.toLowerCase().includes(q);
+          });
+        });
+        input.appendChild(sieve);
+      }
       const sync = () => { hidden.value = [...chosen].join('|'); };
       (f.options || []).forEach((o) => {
         const b = el('button', 'fb-tag', { type: 'button', 'aria-pressed': String(chosen.has(o)) });
@@ -2657,13 +2745,13 @@ function customErrors(form, fields) {
    the query object those filters produce. Nothing here knows a field type —
    it asks FILTER_KIND what shape the filter takes. */
 export function renderFilters(schema, mount, queryMount) {
-  const fields = ((schema && schema.fields) || []).filter((f) => f.searchable && FILTER_KIND[f.type]);
+  const fields = ((schema && schema.fields) || []).filter((f) => f.filterable && FILTER_KIND[f.type]);
   mount.innerHTML = '';
   if (queryMount) queryMount.textContent = '';
 
   if (!fields.length) {
     const p = el('p', 'fb-empty');
-    p.textContent = 'Mark a control searchable and the filters it would add to the list view appear here.';
+    p.textContent = 'A field marked filterable in the schema shows the filter it would add to the list view here.';
     mount.appendChild(p);
     return;
   }
@@ -2882,18 +2970,27 @@ export function initFormBuilder() {
      opens mid-sentence instead: the country is already driving the dial code
      and the currency, and the total is already a total. Change the country and
      two other fields move, three seconds in, with nobody explaining anything.
-     The thirty-seven controls are still there for whoever wants them. */
+     The thirty-seven controls are still there for whoever wants them.
+
+     It also carries the two things that are not properties of any one control
+     and therefore have no button: the section each field sits under, and which
+     fields the list view can be filtered by. Both are visible on arrival —
+     headings in the form, filters in the panel below it — which is a better
+     explanation than a toggle nobody could read. */
   const START = () => ({ fields: [
     { key: 'company', label: { en: 'Company name', ar: 'اسم الشركة', fr: 'Raison sociale' },
-      type: 'text', width: 'w-50', placeholder: 'Acme Trading', rules: { required: true, minLength: 3 } },
+      type: 'text', width: 'w-50', section: 'Customer', placeholder: 'Acme Trading',
+      rules: { required: true, minLength: 3 }, filterable: true },
     { key: 'country', label: { en: 'Country', ar: 'الدولة', fr: 'Pays' },
-      type: 'country', width: 'w-50', ref: 'countries', value: 'EG', drives: ['currency', 'tel'] },
+      type: 'country', width: 'w-50', section: 'Customer', ref: 'countries', value: 'EG',
+      drives: ['currency', 'tel'], searchable: true, filterable: true },
     { key: 'phone', label: { en: 'Phone', ar: 'الهاتف', fr: 'Téléphone' },
-      type: 'tel', width: 'w-50', dial: '+20', dials: DIALS, placeholder: '10 1234 5678' },
+      type: 'tel', width: 'w-50', section: 'Customer', dial: '+20', dials: DIALS, placeholder: '10 1234 5678' },
     { key: 'budget', label: { en: 'Budget', ar: 'الميزانية', fr: 'Budget' },
-      type: 'currency', width: 'w-50', currency: 'EGP', currencies: CURRENCIES, value: 25000 },
+      type: 'currency', width: 'w-50', section: 'Order', currency: 'EGP', currencies: CURRENCIES,
+      value: 25000, filterable: true },
     { key: 'items', label: { en: 'Line items', ar: 'البنود', fr: 'Lignes' },
-      type: 'lineitems', width: 'w-100', fields: [
+      type: 'lineitems', width: 'w-100', section: 'Order', fields: [
         { key: 'desc', label: 'Description', type: 'text' },
         { key: 'qty', label: 'Qty', type: 'quantity', dimension: 'count', uom: 'pc', value: 1 },
         { key: 'price', label: 'Unit price', type: 'number', value: 0 },
@@ -2902,7 +2999,7 @@ export function initFormBuilder() {
         { desc: 'Switch 48-port', qty: 2, price: 125 },
       ] },
     { key: 'total', label: { en: 'Order total', ar: 'إجمالي الطلب', fr: 'Total' },
-      type: 'computed', width: 'w-50', expr: 'sum(qty * price)', format: 'currency' },
+      type: 'computed', width: 'w-50', section: 'Order', expr: 'sum(qty * price)', format: 'currency' },
   ]});
 
   let schema = START();
@@ -2910,12 +3007,9 @@ export function initFormBuilder() {
   let seq = 0;
   let width = null;                 // null = whatever the type calls natural
   let rules = {};                   // the rules the visitor has switched on
-  let searchable = false;           // does the list view get a filter for this?
-  let section = null;               // the heading this field sits under
+  let searchable = false;           // does this control get a search box in it?
   let help = false;                 // show a line of guidance under the control
   let cond = null;                  // { field, op, value } — when this field exists at all
-
-  const SECTIONS = [null, 'Company', 'Contact', 'Commercial terms'];
 
   /* The condition can only point at a field that is already in the form, so
      this row is rebuilt from the schema rather than from the control list. */
@@ -2986,36 +3080,39 @@ export function initFormBuilder() {
     }
   };
 
+  /* Only a control that holds a list of choices has anything to search. */
+  const CAN_SEARCH = new Set(['select', 'multiselect', 'country', 'locale']);
+
+  /* This row used to hold three unrelated things under one word that meant
+     "miscellaneous": which section heading the field sat under, whether it
+     added a filter to the list view, and whether it showed help. The first two
+     are not properties of the control in front of you — they describe the form
+     and the list around it — and putting them here is why nobody could read
+     the row, including the person who built it. Both still exist in the
+     schema; the opening form demonstrates them rather than announcing them. */
   const paintOpts = () => {
     if (!optsEl) return;
     optsEl.innerHTML = '';
 
-    const secWrap = el('span', 'fb-sect');
-    SECTIONS.forEach((name) => {
-      const b = el('button', 'fb-rule fb-rule--sect', { type: 'button', 'aria-pressed': String(section === name) });
-      b.textContent = name || 'no section';
-      b.addEventListener('click', () => { section = name; paintOpts(); });
-      secWrap.appendChild(b);
-    });
-    optsEl.appendChild(secWrap);
-
-    const kind = FILTER_KIND[active.type];
-    if (!kind) {
-      const note = el('span', 'fb-rules__none');
-      note.textContent = 'Not filterable.';
-      optsEl.appendChild(note);
-    }
-    if (kind) {
+    if (CAN_SEARCH.has(active.type)) {
       const b = el('button', 'fb-rule', { type: 'button', 'aria-pressed': String(searchable) });
-      b.textContent = `searchable — ${kind === 'dateRange' ? 'from – to' : kind === 'range' ? 'min – max' : kind === 'anyOf' ? 'any of' : kind === 'bool' ? 'yes / no' : 'contains'}`;
+      b.textContent = 'searchable — type to filter';
       b.addEventListener('click', () => { searchable = !searchable; paintOpts(); });
       optsEl.appendChild(b);
     }
 
-    const hb = el('button', 'fb-rule', { type: 'button', 'aria-pressed': String(help) });
-    hb.textContent = 'help text';
-    hb.addEventListener('click', () => { help = !help; paintOpts(); });
-    optsEl.appendChild(hb);
+    if (HELP[active.type]) {
+      const hb = el('button', 'fb-rule', { type: 'button', 'aria-pressed': String(help) });
+      hb.textContent = 'help text';
+      hb.addEventListener('click', () => { help = !help; paintOpts(); });
+      optsEl.appendChild(hb);
+    }
+
+    if (!optsEl.children.length) {
+      const note = el('span', 'fb-rules__none');
+      note.textContent = 'Nothing to switch on for this one.';
+      optsEl.appendChild(note);
+    }
   };
 
   const paintWidth = () => {
@@ -3091,7 +3188,6 @@ export function initFormBuilder() {
     rules = c.sample.required ? { required: true } : {}; // rules belong to a type, not to the session
     searchable = false;
     help = false;
-    // section deliberately persists: you group several fields in a row
     gallery.querySelectorAll('.fb-chip').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.type === c.type)));
     paintPreview();
     paintWidth();
@@ -3125,7 +3221,6 @@ export function initFormBuilder() {
     const f = { ...active.sample, key: `${active.sample.key}_${seq}` };
     delete f.required;                       // required is a rule now, like every other constraint
     f.width = width || NATURAL_WIDTH[active.type] || 'w-50';
-    if (section) f.section = section;
     if (help && HELP[active.type]) f.help = HELP[active.type];
     if (cond && cond.field) f.showIf = { ...cond };
     /* A computed field is only as good as the fields it can see: if this form
@@ -3135,7 +3230,7 @@ export function initFormBuilder() {
       const pct = schema.fields.find((x) => x.type === 'percent');
       if (pct) f.expr = `sum(qty * price) * (1 - ${baseKey(pct.key)})`;
     }
-    if (searchable && FILTER_KIND[active.type]) f.searchable = true;
+    if (searchable && CAN_SEARCH.has(active.type)) f.searchable = true;
     if (Object.keys(rules).length) f.rules = { ...rules };
     schema.fields.push(f);
     cond = null;                                 // a condition belongs to one field, not to the session
