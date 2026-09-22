@@ -894,6 +894,7 @@ strong { font-weight: 600; color: var(--text); }
 
 /* ---------- masked: the format is part of the control, not a check on it ---------- */
 .mk-sep { font-size: 0.8rem; color: var(--muted-2); }
+.mk-mask--parts { display: flex; align-items: center; gap: 6px; padding-block: 0.46rem; }
 .mk-mask { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.72rem; letter-spacing: 0.06em; color: var(--muted-2); background: rgba(243,240,234,0.03); border: 1px solid var(--line-soft); border-radius: 6px; padding: 0.3rem 0.55rem; width: fit-content; }
 
 .fb-mask { display: flex; flex-direction: column; gap: 0.35rem; }

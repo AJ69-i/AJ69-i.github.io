@@ -764,8 +764,12 @@ const MOCKS = {
         cells += `<i class="mk-qr__m${on ? ' is-on' : ''}" style="--t:${(x / (M - 1)).toFixed(3)}"></i>`;
       }
     }
+    /* The payload used to be spelled out — (01) (10) (17) (21) — which is four
+       GS1 application identifiers with their values stripped out, so it read as
+       four numbers that mean nothing. Four bars say the same thing the rest of
+       the gallery says: a shape with parts, of unequal length. */
     return `<div class="mk-qr">${cells}</div>
-            <div class="mk-mask">(01) (10) (17) (21)</div>`;
+            <div class="mk-mask mk-mask--parts">${['38px', '18px', '26px', '30px'].map(bar).join('')}</div>`;
   },
   masked:   () => `<div class="mk-box">${bar('30px')}<span class="mk-sep">-</span>${bar('30px')}<span class="mk-sep">-</span>${bar('30px')}</div>
                    <div class="mk-mask">000-000-000</div>`,
