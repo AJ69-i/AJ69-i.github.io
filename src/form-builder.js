@@ -2932,11 +2932,14 @@ export function initFormBuilder() {
   const optsEl  = document.querySelector('[data-fb-opts]');
   const filtEl  = document.querySelector('[data-fb-filters]');
   const queryEl = document.querySelector('[data-fb-query]');
+  /* The rendered form and the filter panel are optional mounts: the page can
+     show the palette and the schema alone. Everything below still runs when
+     they are there, and nothing throws when they are not. */
   const preview = document.querySelector('[data-fb-preview]');
   const schemaEl= document.querySelector('[data-fb-schema]');
   const resetBtn= document.querySelector('[data-fb-reset]');
   const count   = document.querySelector('[data-fb-count]');
-  if (!gallery || !preview) return;
+  if (!gallery) return;                       // the palette is the one mount this needs
   if (gallery.dataset.ready) return;          // boot() may fall back to bootReduced(); never wire twice
   gallery.dataset.ready = '1';
 
@@ -3149,7 +3152,7 @@ export function initFormBuilder() {
     if (Object.keys(rules).length) f.rules = { ...rules };
     schema.fields.push(f);
     const restore = carry();
-    renderForm(schema, preview);
+    if (preview) renderForm(schema, preview);
     restore();
     if (filtEl) renderFilters(schema, filtEl, queryEl);
     paintSchema(schema.fields.length - 1);
@@ -3164,7 +3167,7 @@ export function initFormBuilder() {
 
      Returns the other half of itself: call it after the rebuild. */
   const carry = () => {
-    const form = preview.querySelector('.fb-form');
+    const form = preview && preview.querySelector('.fb-form');
     if (!form) return () => {};
 
     const single = new Map();                 // name -> value
@@ -3201,7 +3204,7 @@ export function initFormBuilder() {
         if (rows === undefined) delete f.rows; else f.rows = rows;
       });
 
-      const next = preview.querySelector('.fb-form');
+      const next = preview && preview.querySelector('.fb-form');
       if (!next) return;
 
       single.forEach((v, name) => {
@@ -3235,13 +3238,13 @@ export function initFormBuilder() {
 
   resetBtn && resetBtn.addEventListener('click', () => {
     schema = START(); seq = 0;
-    renderForm(schema, preview);
+    if (preview) renderForm(schema, preview);
     if (filtEl) renderFilters(schema, filtEl, queryEl);
     paintSchema();
   });
 
   select(CONTROLS[0]);
-  renderForm(schema, preview);
+  if (preview) renderForm(schema, preview);
   if (filtEl) renderFilters(schema, filtEl, queryEl);
   paintSchema();
 }
