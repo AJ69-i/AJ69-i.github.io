@@ -2436,28 +2436,16 @@ function readValue(form, f) {
 }
 
 /* ---------- conditional visibility ----------
-   The step from rendering a form to running one. A field states the
-   condition under which it exists, and when that condition is false the
-   field is not merely invisible — it is out of the contract: not validated,
-   not submitted. Anything less and you get a form that silently refuses to
-   submit because of a required field nobody can see. */
-const OPERATORS = {
-  equals:    { label: 'is', needsValue: true },
-  notEquals: { label: 'is not', needsValue: true },
-  anyOf:     { label: 'is any of', needsValue: true },
-  gt:        { label: 'is more than', needsValue: true },
-  lt:        { label: 'is less than', needsValue: true },
-  isSet:     { label: 'has any value', needsValue: false },
-};
+   The step from rendering a form to running one. A field states the condition
+   under which it exists, and when that condition is false the field is not
+   merely invisible — it is out of the contract: not validated, not submitted.
+   Anything less and you get a form that silently refuses to submit because of
+   a required field nobody can see.
 
-function operatorsFor(type) {
-  if (['select', 'radio'].includes(type)) return ['equals', 'notEquals', 'isSet'];
-  if (['toggle'].includes(type)) return ['equals'];
-  if (['number', 'currency', 'range', 'rating', 'percent', 'quantity'].includes(type)) return ['equals', 'gt', 'lt', 'isSet'];
-  if (['multiselect', 'checkbox'].includes(type)) return ['anyOf', 'isSet'];
-  return ['equals', 'notEquals', 'isSet'];
-}
-
+   The demo no longer offers a way to write one of these by hand: the site
+   already makes the config-driven argument where it belongs, in the work, and
+   the panel was asking for six steps before anything happened on screen. A
+   schema that carries showIf still renders exactly like this. */
 /* Several types answer with an object — a country, a lookup row, a tree node,
    an amount with its currency. A condition is written against the part that
    identifies the answer, not against the whole record. */
@@ -2943,7 +2931,6 @@ export function initFormBuilder() {
   const rulesEl = document.querySelector('[data-fb-rules]');
   const optsEl  = document.querySelector('[data-fb-opts]');
   const filtEl  = document.querySelector('[data-fb-filters]');
-  const condEl  = document.querySelector('[data-fb-cond]');
   const queryEl = document.querySelector('[data-fb-query]');
   const preview = document.querySelector('[data-fb-preview]');
   const schemaEl= document.querySelector('[data-fb-schema]');
@@ -3009,76 +2996,6 @@ export function initFormBuilder() {
   let rules = {};                   // the rules the visitor has switched on
   let searchable = false;           // does this control get a search box in it?
   let help = false;                 // show a line of guidance under the control
-  let cond = null;                  // { field, op, value } — when this field exists at all
-
-  /* The condition can only point at a field that is already in the form, so
-     this row is rebuilt from the schema rather than from the control list. */
-  const paintCond = () => {
-    if (!condEl) return;
-    condEl.innerHTML = '';
-
-    const name = (f) => (f.label && typeof f.label === 'object' ? f.label.en : f.label) || f.key;
-    const targets = schema.fields.filter((f) => !['computed', 'signature', 'file', 'lineitems'].includes(f.type));
-    if (!targets.length) {
-      const note = el('p', 'fb-rules__none');
-      note.textContent = 'Add a field first — a condition needs something to point at.';
-      condEl.appendChild(note);
-      return;
-    }
-
-    const fieldOpts = [{ value: '', label: 'always shown' }]
-      .concat(targets.map((f) => ({ value: f.key, label: name(f) })));
-
-    condEl.appendChild(dropdown({
-      options: fieldOpts, value: cond ? cond.field : '', name: '__cond_field',
-      label: 'Depends on', small: true,
-      onChange: (o) => {
-        cond = o.value ? { field: o.value, op: 'equals', value: '' } : null;
-        paintCond();
-      },
-    }));
-    if (!cond) return;
-
-    const target = targets.find((f) => f.key === cond.field);
-    const ops = operatorsFor(target ? target.type : 'text');
-    if (!ops.includes(cond.op)) cond.op = ops[0];
-
-    condEl.appendChild(dropdown({
-      options: ops.map((o) => ({ value: o, label: OPERATORS[o].label })),
-      value: cond.op, name: '__cond_op', label: 'Condition', small: true,
-      onChange: (o) => { cond.op = o.value; paintCond(); },
-    }));
-
-    if (!OPERATORS[cond.op].needsValue) return;
-
-    if (target && target.type === 'toggle') {
-      condEl.appendChild(dropdown({
-        options: [{ value: 'true', label: 'on' }, { value: 'false', label: 'off' }],
-        value: String(cond.value || 'true'), name: '__cond_val', label: 'Value', small: true,
-        onChange: (o) => { cond.value = o.value; },
-      }));
-    } else if (target && target.type === 'country') {
-      if (!cond.value) cond.value = COUNTRIES[0].code;
-      condEl.appendChild(dropdown({
-        options: COUNTRIES.map((c) => ({ value: c.code, label: c.name })),
-        value: cond.value, name: '__cond_val', label: 'Value', small: true,
-        onChange: (o) => { cond.value = o.value; },
-      }));
-    } else if (target && target.options) {
-      if (!cond.value) cond.value = target.options[0];
-      condEl.appendChild(dropdown({
-        options: target.options, value: cond.value, name: '__cond_val',
-        label: 'Value', small: true, onChange: (o) => { cond.value = o.value; },
-      }));
-    } else {
-      const box = el('input', 'fb-input fb-input--sm fb-cond__val', {
-        type: 'text', placeholder: 'value…', 'aria-label': 'Value',
-      });
-      box.value = cond.value || '';
-      box.addEventListener('input', () => { cond.value = box.value; });
-      condEl.appendChild(box);
-    }
-  };
 
   /* Only a control that holds a list of choices has anything to search. */
   const CAN_SEARCH = new Set(['select', 'multiselect', 'country', 'locale']);
@@ -3193,7 +3110,6 @@ export function initFormBuilder() {
     paintWidth();
     paintRules();
     paintOpts();
-    paintCond();
   };
 
   /* 25 chips in one wall is a wall. Grouped, it reads as a palette. */
@@ -3222,7 +3138,6 @@ export function initFormBuilder() {
     delete f.required;                       // required is a rule now, like every other constraint
     f.width = width || NATURAL_WIDTH[active.type] || 'w-50';
     if (help && HELP[active.type]) f.help = HELP[active.type];
-    if (cond && cond.field) f.showIf = { ...cond };
     /* A computed field is only as good as the fields it can see: if this form
        already carries a rate, the sample expression spends it rather than
        pretending the discount is not there. */
@@ -3233,13 +3148,11 @@ export function initFormBuilder() {
     if (searchable && CAN_SEARCH.has(active.type)) f.searchable = true;
     if (Object.keys(rules).length) f.rules = { ...rules };
     schema.fields.push(f);
-    cond = null;                                 // a condition belongs to one field, not to the session
     const restore = carry();
     renderForm(schema, preview);
     restore();
     if (filtEl) renderFilters(schema, filtEl, queryEl);
     paintSchema(schema.fields.length - 1);
-    paintCond();
   });
 
   /* Every value the visitor types lives in the DOM, and adding a control
@@ -3322,11 +3235,9 @@ export function initFormBuilder() {
 
   resetBtn && resetBtn.addEventListener('click', () => {
     schema = START(); seq = 0;
-    cond = null;
     renderForm(schema, preview);
     if (filtEl) renderFilters(schema, filtEl, queryEl);
     paintSchema();
-    paintCond();
   });
 
   select(CONTROLS[0]);
