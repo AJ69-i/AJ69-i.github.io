@@ -1834,7 +1834,10 @@ function buildField(f, idx) {
              cannot hold a dropdown, so three units become a tag you cycle. */
           const box = el('span', 'fb-qty__cell');
           const list = dimOf(c).list;
-          let ui = Math.max(0, list.findIndex(([name]) => name === (c.uom || dimOf(c).base)));
+          /* A row can carry its own unit, so a rebuild does not quietly turn
+             everything back into the column's default. */
+          const startU = (vals && vals[`${c.key}__uom`]) || c.uom || dimOf(c).base;
+          let ui = Math.max(0, list.findIndex(([name]) => name === startU));
           const tag = el('button', 'fb-qty__unit', { type: 'button', 'aria-label': `Unit for ${c.label || c.key}` });
           const paintU = () => { tag.textContent = list[ui][0]; cell.dataset.uom = list[ui][0]; };
           tag.addEventListener('click', () => {
@@ -3125,11 +3128,91 @@ export function initFormBuilder() {
     if (Object.keys(rules).length) f.rules = { ...rules };
     schema.fields.push(f);
     cond = null;                                 // a condition belongs to one field, not to the session
+    const restore = carry();
     renderForm(schema, preview);
+    restore();
     if (filtEl) renderFilters(schema, filtEl, queryEl);
     paintSchema(schema.fields.length - 1);
     paintCond();
   });
+
+  /* Every value the visitor types lives in the DOM, and adding a control
+     rebuilds the form from the schema — so the palette quietly undid whatever
+     had just been demonstrated. It went unnoticed while the form opened with
+     two empty fields: there was nothing there to lose. Now it opens with a
+     country already driving two other fields, so changing one is the first
+     thing a visitor does and reaching for the palette is the second.
+
+     Returns the other half of itself: call it after the rebuild. */
+  const carry = () => {
+    const form = preview.querySelector('.fb-form');
+    if (!form) return () => {};
+
+    const single = new Map();                 // name -> value
+    const group = new Map();                  // name -> the values currently checked
+    form.querySelectorAll('[name]').forEach((n) => {
+      if (n.type === 'checkbox' || n.type === 'radio') {
+        if (!group.has(n.name)) group.set(n.name, new Set());
+        if (n.checked) group.get(n.name).add(n.value);
+      } else single.set(n.name, n.value);
+    });
+
+    /* Rows are not named inputs, so they travel back in through the same
+       seeding path the demo's opening rows use — borrowed for one render and
+       handed back, so the schema on screen still reads as a schema. */
+    const declared = new Map();
+    schema.fields.filter((f) => f.type === 'lineitems').forEach((f) => {
+      const body = form.querySelector(`[data-field="${f.key}"] .fb-items__body`);
+      if (!body) return;
+      declared.set(f.key, f.rows);
+      f.rows = [...body.children].map((row) => {
+        const vals = {};
+        row.querySelectorAll('[data-col]').forEach((c) => {
+          vals[c.dataset.col] = c.value;
+          if (c.dataset.uom) vals[`${c.dataset.col}__uom`] = c.dataset.uom;
+        });
+        return vals;
+      });
+    });
+
+    return () => {
+      declared.forEach((rows, key) => {
+        const f = schema.fields.find((x) => x.key === key);
+        if (!f) return;
+        if (rows === undefined) delete f.rows; else f.rows = rows;
+      });
+
+      const next = preview.querySelector('.fb-form');
+      if (!next) return;
+
+      single.forEach((v, name) => {
+        const node = next.querySelector(`[name="${name}"]`);
+        if (!node || node.value === v) return;
+        if (node.type !== 'hidden') { node.value = v; return; }
+        let host = node.parentElement;        // a custom widget owns its hidden input
+        while (host && host !== next && typeof host.setValue !== 'function') host = host.parentElement;
+        if (host && typeof host.setValue === 'function') host.setValue(v); else node.value = v;
+      });
+      group.forEach((set, name) => {
+        next.querySelectorAll(`[name="${name}"]`).forEach((n) => { n.checked = set.has(n.value); });
+      });
+
+      /* A cascade fires when its source changes, and a source the form has
+         never seen counts as changed. Tell the new form what it is already
+         looking at, or it would re-drive over a currency picked by hand. */
+      const memo = (prop, wants) => {
+        const seen = (next[prop] = {});
+        schema.fields.filter(wants).forEach((f) => {
+          const src = next.querySelector(`[name="${f.key}"]`);
+          if (src) seen[f.key] = src.value;
+        });
+      };
+      memo('__cascade', (f) => Array.isArray(f.drives) && f.drives.length);
+      memo('__scan', (f) => f.type === 'qrcode' && f.fills);
+
+      next.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+  };
 
   resetBtn && resetBtn.addEventListener('click', () => {
     schema = START(); seq = 0;
