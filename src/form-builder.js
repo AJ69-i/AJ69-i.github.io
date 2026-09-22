@@ -2865,6 +2865,17 @@ export function initFormBuilder() {
   if (gallery.dataset.ready) return;          // boot() may fall back to bootReduced(); never wire twice
   gallery.dataset.ready = '1';
 
+  /* The palette snaps to a row so it never rests halfway through one. That
+     fights the keyboard: the browser scrolls a focused chip into view and the
+     snap immediately pulls the list back to the nearest row, which for the
+     last two chips put them under the fold again — tabbed to, and invisible.
+     Snapping is a pointer nicety, so it stands down while the keyboard is
+     inside the palette and comes back when focus leaves. */
+  gallery.addEventListener('focusin', () => { gallery.style.scrollSnapType = 'none'; });
+  gallery.addEventListener('focusout', (e) => {
+    if (!gallery.contains(e.relatedTarget)) gallery.style.scrollSnapType = '';
+  });
+
   /* The form the demo opens with. It used to be a text box and a dropdown,
      which is what every form on earth opens with — nothing here was doing
      anything until the visitor worked out the palette and picked well. So it

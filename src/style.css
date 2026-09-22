@@ -218,15 +218,41 @@ strong { font-weight: 600; color: var(--text); }
 .fb__reset:hover { color: var(--accent); border-color: var(--accent-dim); }
 
 /* control gallery */
-.fb__gallery { display: block; max-height: clamp(320px, 52vh, 520px); overflow-y: auto; overscroll-behavior: contain; padding: clamp(0.9rem, 2vw, 1.15rem); scrollbar-width: thin; scrollbar-color: rgba(243,240,234,0.22) transparent;
+.fb__gallery { --fb-pad: clamp(0.9rem, 2vw, 1.15rem); --fb-head: 3rem;
+  display: block; max-height: clamp(320px, 52vh, 520px); overflow-y: auto; overscroll-behavior: contain; padding: var(--fb-pad); scrollbar-width: thin;
+  /* Come to rest on a row, never across one. A heading holds the top of the
+     list while it scrolls, so without this the list settles wherever the
+     gesture stopped — often halfway through a row of labels. --fb-head is the
+     heading's band plus the dissolve under it, carrying a little slack: the
+     snap line has to clear both or the row lands inside the fade. */
+  scroll-snap-type: y proximity; scroll-padding-top: calc(var(--fb-pad) + var(--fb-head)); scrollbar-color: rgba(243,240,234,0.22) transparent;
   /* a soft bottom edge, so it is obvious the palette keeps going */
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent);
           mask-image: linear-gradient(to bottom, #000 calc(100% - 30px), transparent); }
 .fb__gallery:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .fb__gallery::-webkit-scrollbar { width: 6px; }
 .fb__gallery::-webkit-scrollbar-thumb { background: rgba(243,240,234,0.22); border-radius: 100px; }
-.fb-group { position: sticky; top: 0; z-index: 2; margin: 0 0 0.55rem; padding: 0.35rem 0 0.4rem; font-family: var(--font-display); font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted-2); background: var(--bg-card); }
-.fb-group + .fb-group__grid { margin-bottom: 1.05rem; }
+/* A sticky heading cannot rise above its containing block, which here is the
+   gallery's content box — so "top: 0" parks it below the gallery's own
+   padding. Overflow, meanwhile, clips at the padding box, one gutter higher.
+   That gap is live: a chip scrolling past the heading did not stop at it, it
+   carried on into the gutter and sat there half-cut, so a single row read as
+   three — its top above the heading, the heading's band across it, its bottom
+   edge below. The heading now paints the gutter it stands in, and marks its
+   own lower edge so that what passes underneath reads as passing underneath. */
+.fb-group { position: sticky; top: 0; z-index: 2; margin: 0 0 0.95rem; padding: 0.35rem 0 0.5rem; font-family: var(--font-display); font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted-2); background: var(--bg-card); }
+.fb-group::before, .fb-group::after { content: ''; position: absolute; inset-inline: calc(var(--fb-pad) * -1); pointer-events: none; }
+.fb-group::before { bottom: 100%; height: var(--fb-pad); background: var(--bg-card); }
+/* solid for most of the gap, then out — the gap is exactly this tall, so a
+   row at rest is never touched and a row scrolling under loses its labels
+   before they can be read in half */
+.fb-group::after { top: 100%; height: 0.95rem; border-top: 1px solid var(--line); background: linear-gradient(var(--bg-card) 0 62%, transparent); }
+/* the gap between one group and the next has to clear the gutter the next
+   heading paints, or that paint would crop the last row of chips above it */
+.fb-group + .fb-group__grid { margin-bottom: calc(var(--fb-pad) + 0.4rem); }
+/* every chip is a snap target; the ones sharing a row share a top, so the
+   list lands on a row boundary whatever the column count works out to */
+.fb-chip { scroll-snap-align: start; }
 .fb-group__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 0.5rem; }
 .fb-chip { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.45rem; padding: 0.85rem 0.4rem; background: var(--bg); color: var(--muted); border: 1px solid var(--line); border-radius: 11px; cursor: pointer; font-family: var(--font-body); transition: color .28s var(--ease), border-color .28s var(--ease), background .28s var(--ease), transform .28s var(--ease); }
 .fb-chip__icon { display: grid; place-items: center; }
