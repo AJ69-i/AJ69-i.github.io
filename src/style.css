@@ -238,15 +238,17 @@ strong { font-weight: 600; color: var(--text); }
    That gap is live: a chip scrolling past the heading did not stop at it, it
    carried on into the gutter and sat there half-cut, so a single row read as
    three — its top above the heading, the heading's band across it, its bottom
-   edge below. The heading now paints the gutter it stands in, and marks its
-   own lower edge so that what passes underneath reads as passing underneath. */
+   edge below. The heading now paints the gutter it stands in, and dissolves
+   what passes underneath rather than slicing it. */
 .fb-group { position: sticky; top: 0; z-index: 2; margin: 0 0 0.95rem; padding: 0.35rem 0 0.5rem; font-family: var(--font-display); font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted-2); background: var(--bg-card); }
 .fb-group::before, .fb-group::after { content: ''; position: absolute; inset-inline: calc(var(--fb-pad) * -1); pointer-events: none; }
 .fb-group::before { bottom: 100%; height: var(--fb-pad); background: var(--bg-card); }
-/* solid for most of the gap, then out — the gap is exactly this tall, so a
+/* Solid for most of the gap, then out — the gap is exactly this tall, so a
    row at rest is never touched and a row scrolling under loses its labels
-   before they can be read in half */
-.fb-group::after { top: 100%; height: 0.95rem; border-top: 1px solid var(--line); background: linear-gradient(var(--bg-card) 0 62%, transparent); }
+   before they can be read in half. No rule across the bottom: it would have to
+   span the gutters to match the paint above it, which makes it wider than
+   everything it sits over. The list settles on a row anyway. */
+.fb-group::after { top: 100%; height: 0.95rem; background: linear-gradient(var(--bg-card) 0 62%, transparent); }
 /* the gap between one group and the next has to clear the gutter the next
    heading paints, or that paint would crop the last row of chips above it */
 .fb-group + .fb-group__grid { margin-bottom: calc(var(--fb-pad) + 0.4rem); }
