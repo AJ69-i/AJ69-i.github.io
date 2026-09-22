@@ -390,6 +390,9 @@ export const CONTROLS = [
       { key: 'desc', label: 'Description', type: 'text' },
       { key: 'qty', label: 'Qty', type: 'quantity', dimension: 'count', uom: 'pc', value: 1 },
       { key: 'price', label: 'Unit price', type: 'number', value: 0 },
+    ], rows: [
+      { desc: 'Rack server', qty: 3, price: 250 },
+      { desc: 'Switch 48-port', qty: 2, price: 125 },
     ] } },
 
   { type: 'otp', label: 'One-time Code', group: 'Text', icon: svg('<rect x="2" y="7" width="3.6" height="6" rx="1"/><rect x="7" y="7" width="3.6" height="6" rx="1"/><rect x="12" y="7" width="3.6" height="6" rx="1"/><path d="M17.6 10H18"/>'),
@@ -1861,7 +1864,10 @@ function buildField(f, idx) {
       addBtn.addEventListener('click', () => addRow());
       foot.append(addBtn, count);
       input.append(head, body, foot);
-      addRow(); addRow();
+      /* A repeating group that opens empty makes the total below it read 0.00,
+         which is the least interesting thing it will ever say. */
+      const seed = Array.isArray(f.rows) && f.rows.length ? f.rows : [null, null];
+      seed.forEach((v) => addRow(v));
       break;
     }
 
@@ -2856,11 +2862,33 @@ export function initFormBuilder() {
   if (gallery.dataset.ready) return;          // boot() may fall back to bootReduced(); never wire twice
   gallery.dataset.ready = '1';
 
+  /* The form the demo opens with. It used to be a text box and a dropdown,
+     which is what every form on earth opens with — nothing here was doing
+     anything until the visitor worked out the palette and picked well. So it
+     opens mid-sentence instead: the country is already driving the dial code
+     and the currency, and the total is already a total. Change the country and
+     two other fields move, three seconds in, with nobody explaining anything.
+     The thirty-seven controls are still there for whoever wants them. */
   const START = () => ({ fields: [
     { key: 'company', label: { en: 'Company name', ar: 'اسم الشركة', fr: 'Raison sociale' },
       type: 'text', width: 'w-50', placeholder: 'Acme Trading', rules: { required: true, minLength: 3 } },
-    { key: 'plan', label: { en: 'Plan', ar: 'الباقة', fr: 'Formule' },
-      type: 'select', width: 'w-50', options: ['Starter', 'Growth', 'Enterprise'], value: 'Growth' },
+    { key: 'country', label: { en: 'Country', ar: 'الدولة', fr: 'Pays' },
+      type: 'country', width: 'w-50', ref: 'countries', value: 'EG', drives: ['currency', 'tel'] },
+    { key: 'phone', label: { en: 'Phone', ar: 'الهاتف', fr: 'Téléphone' },
+      type: 'tel', width: 'w-50', dial: '+20', dials: DIALS, placeholder: '10 1234 5678' },
+    { key: 'budget', label: { en: 'Budget', ar: 'الميزانية', fr: 'Budget' },
+      type: 'currency', width: 'w-50', currency: 'EGP', currencies: CURRENCIES, value: 25000 },
+    { key: 'items', label: { en: 'Line items', ar: 'البنود', fr: 'Lignes' },
+      type: 'lineitems', width: 'w-100', fields: [
+        { key: 'desc', label: 'Description', type: 'text' },
+        { key: 'qty', label: 'Qty', type: 'quantity', dimension: 'count', uom: 'pc', value: 1 },
+        { key: 'price', label: 'Unit price', type: 'number', value: 0 },
+      ], rows: [
+        { desc: 'Rack server', qty: 3, price: 250 },
+        { desc: 'Switch 48-port', qty: 2, price: 125 },
+      ] },
+    { key: 'total', label: { en: 'Order total', ar: 'إجمالي الطلب', fr: 'Total' },
+      type: 'computed', width: 'w-50', expr: 'sum(qty * price)', format: 'currency' },
   ]});
 
   let schema = START();
