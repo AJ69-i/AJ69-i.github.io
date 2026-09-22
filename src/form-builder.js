@@ -2954,33 +2954,25 @@ export function initFormBuilder() {
     if (!gallery.contains(e.relatedTarget)) gallery.style.scrollSnapType = '';
   });
 
-  /* The form the demo opens with. It used to be a text box and a dropdown,
-     which is what every form on earth opens with — nothing here was doing
-     anything until the visitor worked out the palette and picked well. So it
-     opens mid-sentence instead: the country is already driving the dial code
-     and the currency, and the total is already a total. Change the country and
-     two other fields move, three seconds in, with nobody explaining anything.
-     The thirty-seven controls are still there for whoever wants them.
-
-     It also carries the two things that are not properties of any one control
-     and therefore have no button: the section each field sits under, and which
-     fields the list view can be filtered by. Both are visible on arrival —
-     headings in the form, filters in the panel below it — which is a better
-     explanation than a toggle nobody could read. */
+  /* The schema the demo opens with. Every key in it is one the panel on the
+     left can produce — pick a control, set a width, switch on a rule, mark it
+     searchable — so nothing in this JSON is a promise the page cannot keep.
+     Six fields rather than two, because a schema with a text box and a
+     dropdown in it demonstrates a schema; this one demonstrates a language:
+     rules with bounds, a ref that names a source instead of inlining it, a
+     nested schema for the rows, and a total that is an expression over them. */
   const START = () => ({ fields: [
     { key: 'company', label: { en: 'Company name', ar: 'اسم الشركة', fr: 'Raison sociale' },
-      type: 'text', width: 'w-50', section: 'Customer', placeholder: 'Acme Trading',
-      rules: { required: true, minLength: 3 }, filterable: true },
+      type: 'text', width: 'w-50', placeholder: 'Acme Trading',
+      rules: { required: true, minLength: 3 } },
     { key: 'country', label: { en: 'Country', ar: 'الدولة', fr: 'Pays' },
-      type: 'country', width: 'w-50', section: 'Customer', ref: 'countries', value: 'EG',
-      drives: ['currency', 'tel'], searchable: true, filterable: true },
-    { key: 'phone', label: { en: 'Phone', ar: 'الهاتف', fr: 'Téléphone' },
-      type: 'tel', width: 'w-50', section: 'Customer', dial: '+20', dials: DIALS, placeholder: '10 1234 5678' },
-    { key: 'budget', label: { en: 'Budget', ar: 'الميزانية', fr: 'Budget' },
-      type: 'currency', width: 'w-50', section: 'Order', currency: 'EGP', currencies: CURRENCIES,
-      value: 25000, filterable: true },
+      type: 'country', width: 'w-50', ref: 'countries', value: 'EG', searchable: true },
+    { key: 'plan', label: { en: 'Plan', ar: 'الباقة', fr: 'Formule' },
+      type: 'select', width: 'w-50', options: ['Starter', 'Growth', 'Enterprise'], value: 'Growth' },
+    { key: 'seats', label: { en: 'Seats', ar: 'عدد المستخدمين', fr: 'Licences' },
+      type: 'number', width: 'w-50', value: 25, rules: { required: true, min: 1, max: 500 } },
     { key: 'items', label: { en: 'Line items', ar: 'البنود', fr: 'Lignes' },
-      type: 'lineitems', width: 'w-100', section: 'Order', fields: [
+      type: 'lineitems', width: 'w-100', fields: [
         { key: 'desc', label: 'Description', type: 'text' },
         { key: 'qty', label: 'Qty', type: 'quantity', dimension: 'count', uom: 'pc', value: 1 },
         { key: 'price', label: 'Unit price', type: 'number', value: 0 },
@@ -2989,7 +2981,7 @@ export function initFormBuilder() {
         { desc: 'Switch 48-port', qty: 2, price: 125 },
       ] },
     { key: 'total', label: { en: 'Order total', ar: 'إجمالي الطلب', fr: 'Total' },
-      type: 'computed', width: 'w-50', section: 'Order', expr: 'sum(qty * price)', format: 'currency' },
+      type: 'computed', width: 'w-50', expr: 'sum(qty * price)', format: 'currency' },
   ]});
 
   let schema = START();
