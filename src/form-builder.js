@@ -2930,19 +2930,10 @@ export function initFormBuilder() {
   const gallery = document.querySelector('[data-fb-gallery]');
   const single  = document.querySelector('[data-fb-single]');
   const hint    = document.querySelector('[data-fb-hint]');
-  const addBtn  = document.querySelector('[data-fb-add]');
   const widthEl = document.querySelector('[data-fb-width]');
   const rulesEl = document.querySelector('[data-fb-rules]');
   const optsEl  = document.querySelector('[data-fb-opts]');
-  const filtEl  = document.querySelector('[data-fb-filters]');
-  const queryEl = document.querySelector('[data-fb-query]');
-  /* The rendered form and the filter panel are optional mounts: the page can
-     show the palette and the schema alone. Everything below still runs when
-     they are there, and nothing throws when they are not. */
-  const preview = document.querySelector('[data-fb-preview]');
   const schemaEl= document.querySelector('[data-fb-schema]');
-  const resetBtn= document.querySelector('[data-fb-reset]');
-  const count   = document.querySelector('[data-fb-count]');
   if (!gallery) return;                       // the palette is the one mount this needs
   if (gallery.dataset.ready) return;          // boot() may fall back to bootReduced(); never wire twice
   gallery.dataset.ready = '1';
@@ -2958,39 +2949,7 @@ export function initFormBuilder() {
     if (!gallery.contains(e.relatedTarget)) gallery.style.scrollSnapType = '';
   });
 
-  /* The schema the demo opens with. Every key in it is one the panel on the
-     left can produce — pick a control, set a width, switch on a rule, mark it
-     searchable — so nothing in this JSON is a promise the page cannot keep.
-     Six fields rather than two, because a schema with a text box and a
-     dropdown in it demonstrates a schema; this one demonstrates a language:
-     rules with bounds, a ref that names a source instead of inlining it, a
-     nested schema for the rows, and a total that is an expression over them. */
-  const START = () => ({ fields: [
-    { key: 'company', label: { en: 'Company name', ar: 'اسم الشركة', fr: 'Raison sociale' },
-      type: 'text', width: 'w-50', placeholder: 'Acme Trading',
-      rules: { required: true, minLength: 3 } },
-    { key: 'country', label: { en: 'Country', ar: 'الدولة', fr: 'Pays' },
-      type: 'country', width: 'w-50', ref: 'countries', value: 'EG', searchable: true },
-    { key: 'plan', label: { en: 'Plan', ar: 'الباقة', fr: 'Formule' },
-      type: 'select', width: 'w-50', options: ['Starter', 'Growth', 'Enterprise'], value: 'Growth' },
-    { key: 'seats', label: { en: 'Seats', ar: 'عدد المستخدمين', fr: 'Licences' },
-      type: 'number', width: 'w-50', value: 25, rules: { required: true, min: 1, max: 500 } },
-    { key: 'items', label: { en: 'Line items', ar: 'البنود', fr: 'Lignes' },
-      type: 'lineitems', width: 'w-100', fields: [
-        { key: 'desc', label: 'Description', type: 'text' },
-        { key: 'qty', label: 'Qty', type: 'quantity', dimension: 'count', uom: 'pc', value: 1 },
-        { key: 'price', label: 'Unit price', type: 'number', value: 0 },
-      ], rows: [
-        { desc: 'Rack server', qty: 3, price: 250 },
-        { desc: 'Switch 48-port', qty: 2, price: 125 },
-      ] },
-    { key: 'total', label: { en: 'Order total', ar: 'إجمالي الطلب', fr: 'Total' },
-      type: 'computed', width: 'w-50', expr: 'sum(qty * price)', format: 'currency' },
-  ]});
-
-  let schema = START();
   let active = CONTROLS[0];
-  let seq = 0;
   let width = null;                 // null = whatever the type calls natural
   let rules = {};                   // the rules the visitor has switched on
   let searchable = false;           // does this control get a search box in it?
@@ -3013,14 +2972,14 @@ export function initFormBuilder() {
     if (CAN_SEARCH.has(active.type)) {
       const b = el('button', 'fb-rule', { type: 'button', 'aria-pressed': String(searchable) });
       b.textContent = 'searchable — type to filter';
-      b.addEventListener('click', () => { searchable = !searchable; paintOpts(); });
+      b.addEventListener('click', () => { searchable = !searchable; paintOpts(); paintSchema(); });
       optsEl.appendChild(b);
     }
 
     if (HELP[active.type]) {
       const hb = el('button', 'fb-rule', { type: 'button', 'aria-pressed': String(help) });
       hb.textContent = 'help text';
-      hb.addEventListener('click', () => { help = !help; paintOpts(); });
+      hb.addEventListener('click', () => { help = !help; paintOpts(); paintSchema(); });
       optsEl.appendChild(hb);
     }
 
@@ -3038,7 +2997,7 @@ export function initFormBuilder() {
     WIDTHS.forEach((w) => {
       const b = el('button', 'fb-w', { type: 'button', 'aria-pressed': String(w === current) });
       b.textContent = w.replace('w-', '') + '%';
-      b.addEventListener('click', () => { width = w; paintWidth(); });
+      b.addEventListener('click', () => { width = w; paintWidth(); paintSchema(); });
       widthEl.appendChild(b);
     });
   };
@@ -3061,36 +3020,36 @@ export function initFormBuilder() {
         if (rules[r.key] !== undefined) delete rules[r.key];
         else rules[r.key] = r.value;
         paintRules();
+        paintSchema();       // the config beside it is the point of switching this on
       });
       rulesEl.appendChild(b);
     });
   };
 
-  /* The schema is the point of the whole demo, so it is never hidden behind a
-     toggle. Every add rewrites it in place and flashes the lines it just wrote,
-     so the cause (a click on the left) and the effect (config, then a real
-     field) are visible in the same glance. */
   const esc = (t) => t.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
-  const paintSchema = (flash = -1) => {
-    if (count) count.textContent = `${schema.fields.length} control${schema.fields.length === 1 ? '' : 's'}`;
+  /* The config the selected control writes — its own sample, plus whatever the
+     three rows underneath are currently set to. The panel used to collect
+     fields as you added them, which made it longer and less readable with
+     every click and answered a question nobody had: what does a list of six
+     unrelated fields look like. One control at a time answers the question
+     people actually have, which is what this control costs to declare. */
+  const configFor = () => {
+    const f = { ...active.sample };
+    delete f.required;                     // required is a rule here, like the rest
+    f.width = width || NATURAL_WIDTH[active.type] || 'w-50';
+    if (Object.keys(rules).length) f.rules = { ...rules };
+    if (searchable && CAN_SEARCH.has(active.type)) f.searchable = true;
+    if (help && HELP[active.type]) f.help = HELP[active.type];
+    return f;
+  };
+
+  const paintSchema = () => {
     if (!schemaEl) return;
-
-    const bodies = schema.fields.map((f) =>
-      JSON.stringify(f, null, 2).split('\n').map((l) => '    ' + l).join('\n'));
-
-    let html = '{\n  "fields": [\n';
-    bodies.forEach((bodyText, i) => {
-      const chunk = esc(bodyText) + (i < bodies.length - 1 ? ',' : '') + '\n';
-      html += i === flash ? `<mark class="fb__new">${chunk}</mark>` : chunk;
-    });
-    html += '  ]\n}';
-    schemaEl.innerHTML = html;
-
-    const mark = schemaEl.querySelector('.fb__new');
-    if (!mark) { schemaEl.scrollTop = 0; return; }
-    const top = mark.offsetTop - schemaEl.clientHeight / 2 + mark.offsetHeight / 2;
-    schemaEl.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    const body = JSON.stringify(configFor(), null, 2)
+      .split('\n').map((l) => '    ' + l).join('\n');
+    schemaEl.innerHTML = `{\n  "fields": [\n${esc(body)}\n  ]\n}`;
+    schemaEl.scrollTop = 0;
   };
 
   const paintPreview = () => {
@@ -3109,6 +3068,7 @@ export function initFormBuilder() {
     paintWidth();
     paintRules();
     paintOpts();
+    paintSchema();
   };
 
   /* 25 chips in one wall is a wall. Grouped, it reads as a palette. */
@@ -3131,116 +3091,5 @@ export function initFormBuilder() {
     gallery.appendChild(row);
   });
 
-  addBtn && addBtn.addEventListener('click', () => {
-    seq += 1;
-    const f = { ...active.sample, key: `${active.sample.key}_${seq}` };
-    delete f.required;                       // required is a rule now, like every other constraint
-    f.width = width || NATURAL_WIDTH[active.type] || 'w-50';
-    if (help && HELP[active.type]) f.help = HELP[active.type];
-    /* A computed field is only as good as the fields it can see: if this form
-       already carries a rate, the sample expression spends it rather than
-       pretending the discount is not there. */
-    if (active.type === 'computed') {
-      const pct = schema.fields.find((x) => x.type === 'percent');
-      if (pct) f.expr = `sum(qty * price) * (1 - ${baseKey(pct.key)})`;
-    }
-    if (searchable && CAN_SEARCH.has(active.type)) f.searchable = true;
-    if (Object.keys(rules).length) f.rules = { ...rules };
-    schema.fields.push(f);
-    const restore = carry();
-    if (preview) renderForm(schema, preview);
-    restore();
-    if (filtEl) renderFilters(schema, filtEl, queryEl);
-    paintSchema(schema.fields.length - 1);
-  });
-
-  /* Every value the visitor types lives in the DOM, and adding a control
-     rebuilds the form from the schema — so the palette quietly undid whatever
-     had just been demonstrated. It went unnoticed while the form opened with
-     two empty fields: there was nothing there to lose. Now it opens with a
-     country already driving two other fields, so changing one is the first
-     thing a visitor does and reaching for the palette is the second.
-
-     Returns the other half of itself: call it after the rebuild. */
-  const carry = () => {
-    const form = preview && preview.querySelector('.fb-form');
-    if (!form) return () => {};
-
-    const single = new Map();                 // name -> value
-    const group = new Map();                  // name -> the values currently checked
-    form.querySelectorAll('[name]').forEach((n) => {
-      if (n.type === 'checkbox' || n.type === 'radio') {
-        if (!group.has(n.name)) group.set(n.name, new Set());
-        if (n.checked) group.get(n.name).add(n.value);
-      } else single.set(n.name, n.value);
-    });
-
-    /* Rows are not named inputs, so they travel back in through the same
-       seeding path the demo's opening rows use — borrowed for one render and
-       handed back, so the schema on screen still reads as a schema. */
-    const declared = new Map();
-    schema.fields.filter((f) => f.type === 'lineitems').forEach((f) => {
-      const body = form.querySelector(`[data-field="${f.key}"] .fb-items__body`);
-      if (!body) return;
-      declared.set(f.key, f.rows);
-      f.rows = [...body.children].map((row) => {
-        const vals = {};
-        row.querySelectorAll('[data-col]').forEach((c) => {
-          vals[c.dataset.col] = c.value;
-          if (c.dataset.uom) vals[`${c.dataset.col}__uom`] = c.dataset.uom;
-        });
-        return vals;
-      });
-    });
-
-    return () => {
-      declared.forEach((rows, key) => {
-        const f = schema.fields.find((x) => x.key === key);
-        if (!f) return;
-        if (rows === undefined) delete f.rows; else f.rows = rows;
-      });
-
-      const next = preview && preview.querySelector('.fb-form');
-      if (!next) return;
-
-      single.forEach((v, name) => {
-        const node = next.querySelector(`[name="${name}"]`);
-        if (!node || node.value === v) return;
-        if (node.type !== 'hidden') { node.value = v; return; }
-        let host = node.parentElement;        // a custom widget owns its hidden input
-        while (host && host !== next && typeof host.setValue !== 'function') host = host.parentElement;
-        if (host && typeof host.setValue === 'function') host.setValue(v); else node.value = v;
-      });
-      group.forEach((set, name) => {
-        next.querySelectorAll(`[name="${name}"]`).forEach((n) => { n.checked = set.has(n.value); });
-      });
-
-      /* A cascade fires when its source changes, and a source the form has
-         never seen counts as changed. Tell the new form what it is already
-         looking at, or it would re-drive over a currency picked by hand. */
-      const memo = (prop, wants) => {
-        const seen = (next[prop] = {});
-        schema.fields.filter(wants).forEach((f) => {
-          const src = next.querySelector(`[name="${f.key}"]`);
-          if (src) seen[f.key] = src.value;
-        });
-      };
-      memo('__cascade', (f) => Array.isArray(f.drives) && f.drives.length);
-      memo('__scan', (f) => f.type === 'qrcode' && f.fills);
-
-      next.dispatchEvent(new Event('input', { bubbles: true }));
-    };
-  };
-
-  resetBtn && resetBtn.addEventListener('click', () => {
-    schema = START(); seq = 0;
-    if (preview) renderForm(schema, preview);
-    if (filtEl) renderFilters(schema, filtEl, queryEl);
-    paintSchema();
-  });
-
   select(CONTROLS[0]);
-  if (preview) renderForm(schema, preview);
-  if (filtEl) renderFilters(schema, filtEl, queryEl);
-  paintSchema();
 }
